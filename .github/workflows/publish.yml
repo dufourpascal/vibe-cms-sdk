@@ -1,0 +1,60 @@
+name: Publish to NPM
+
+on:
+  # Trigger on new releases
+  release:
+    types: [published]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty to use current package.json version)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run type check
+        run: npm run type-check
+        
+      - name: Run tests
+        run: npm run test:run
+        
+      - name: Build package
+        run: npm run build
+        
+      - name: Update version (if specified)
+        if: github.event.inputs.version != ''
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+        
+      - name: Publish to NPM
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+      - name: Print published version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "✅ Published @dufourpascal/vibe-cms-sdk@$VERSION to NPM"
+          echo "📦 Install with: npm install @dufourpascal/vibe-cms-sdk@$VERSION"

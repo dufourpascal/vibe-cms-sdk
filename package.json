@@ -1,0 +1,65 @@
+{
+  "name": "@dufourpascal/vibe-cms-sdk",
+  "version": "0.1.0",
+  "description": "Framework-agnostic TypeScript SDK for Vibe CMS - AI-powered content management system",
+  "keywords": [
+    "cms",
+    "content-management",
+    "typescript",
+    "sdk",
+    "framework-agnostic",
+    "headless-cms",
+    "vibe-cms"
+  ],
+  "author": "Pascal Dufour",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "import": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "require": {
+      "types": "./dist/index.d.cts",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run type-check && npm run test:run && npm run build",
+    "publish:npm": "npm publish --access public"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "jsdom": "^23.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dufourpascal/vibe-cms-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dufourpascal/vibe-cms-sdk/issues"
+  },
+  "homepage": "https://github.com/dufourpascal/vibe-cms-sdk#readme"
+}
