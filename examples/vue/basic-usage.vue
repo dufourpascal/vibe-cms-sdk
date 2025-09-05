@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { createVibeCMS, type VibeCMSError } from '@dufourpascal/vibe-cms-sdk'
+import { createVibeCMS, type VibeCMSError } from 'vibe-cms-sdk'
 
 // Types
 interface BlogPost {

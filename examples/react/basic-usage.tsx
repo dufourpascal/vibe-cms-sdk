@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { createVibeCMS, type VibeCMSError } from '@dufourpascal/vibe-cms-sdk'
+import { createVibeCMS, type VibeCMSError } from 'vibe-cms-sdk'
 
 // Types
 interface BlogPost {

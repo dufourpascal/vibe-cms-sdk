@@ -56,5 +56,5 @@ jobs:
       - name: Print published version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "✅ Published @dufourpascal/vibe-cms-sdk@$VERSION to NPM"
-          echo "📦 Install with: npm install @dufourpascal/vibe-cms-sdk@$VERSION"
+          echo "✅ Published vibe-cms-sdk@$VERSION to NPM"
+          echo "📦 Install with: npm install vibe-cms-sdk@$VERSION"

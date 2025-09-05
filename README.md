@@ -20,13 +20,13 @@ Framework-agnostic TypeScript SDK for Vibe CMS - AI-powered content management s
 Install from public NPM registry:
 
 ```bash
-npm install @dufourpascal/vibe-cms-sdk
+npm install vibe-cms-sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import { createVibeCMS } from '@dufourpascal/vibe-cms-sdk'
+import { createVibeCMS } from 'vibe-cms-sdk'
 
 // Initialize the CMS client
 const cms = createVibeCMS({
@@ -147,7 +147,7 @@ const post = await cms.collection<BlogPost>('blog_posts').first()
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { createVibeCMS } from '@dufourpascal/vibe-cms-sdk'
+import { createVibeCMS } from 'vibe-cms-sdk'
 
 const posts = ref([])
 
@@ -165,7 +165,7 @@ onMounted(async () => {
 
 ```tsx
 import { useState, useEffect } from 'react'
-import { createVibeCMS } from '@dufourpascal/vibe-cms-sdk'
+import { createVibeCMS } from 'vibe-cms-sdk'
 
 const cms = createVibeCMS({
   projectId: 'your-project-id'
@@ -196,7 +196,7 @@ function BlogPosts() {
 
 ```typescript
 import { Component, OnInit } from '@angular/core'
-import { createVibeCMS } from '@dufourpascal/vibe-cms-sdk'
+import { createVibeCMS } from 'vibe-cms-sdk'
 
 @Component({
   selector: 'app-blog',
@@ -225,7 +225,7 @@ export class BlogComponent implements OnInit {
 The SDK provides comprehensive error handling:
 
 ```typescript
-import { VibeCMSError } from '@dufourpascal/vibe-cms-sdk'
+import { VibeCMSError } from 'vibe-cms-sdk'
 
 try {
   const posts = await cms.collection('blog_posts').all()
@@ -255,10 +255,10 @@ If you were using the private GitHub Packages version:
 
 ```bash
 # Remove old package
-npm uninstall @dufourpascal/vibe-cms-sdk
+npm uninstall vibe-cms-sdk
 
 # Install from public NPM
-npm install @dufourpascal/vibe-cms-sdk
+npm install vibe-cms-sdk
 
 # No code changes needed - imports remain the same!
 ```
