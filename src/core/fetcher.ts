@@ -129,9 +129,11 @@ export class Fetcher {
 
       // Log headers in a TypeScript-friendly way
       const responseHeaders: Record<string, string> = {}
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value
-      })
+      if (response.headers && typeof response.headers.forEach === 'function') {
+        response.headers.forEach((value, key) => {
+          responseHeaders[key] = value
+        })
+      }
 
       console.log('🔍 SDK DEBUG: Response received:', {
         status: response.status,
