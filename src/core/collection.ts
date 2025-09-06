@@ -29,6 +29,11 @@ export class CollectionQuery<T = PublicContentItem> {
    * Returns null if the collection is empty.
    */
   async first(): Promise<T | null> {
+    console.log('🔍 SDK DEBUG: CollectionQuery.first() called for:', {
+      projectId: this.projectId,
+      collectionSlug: this.collectionSlug
+    })
+
     const cacheKey = this.cache.generateKey({
       projectId: this.projectId,
       collectionSlug: this.collectionSlug,
@@ -38,8 +43,11 @@ export class CollectionQuery<T = PublicContentItem> {
     // Try cache first
     const cached = await this.cache.get<T>(cacheKey)
     if (cached !== null) {
+      console.log('🔍 SDK DEBUG: Cache hit for first()')
       return cached
     }
+
+    console.log('🔍 SDK DEBUG: Cache miss, making API request to fetcher.get()')
 
     try {
       // Fetch all items from the collection
@@ -47,18 +55,32 @@ export class CollectionQuery<T = PublicContentItem> {
         `/api/public/${this.projectId}/${this.collectionSlug}`
       )
 
+      console.log('🔍 SDK DEBUG: API response received:', {
+        hasItems: !!response.items,
+        itemCount: response.items ? response.items.length : 0,
+        collection: response.collection ? response.collection.slug : 'no-collection'
+      })
+
       const firstItem = response.items[0] || null
+      
+      console.log('🔍 SDK DEBUG: First item result:', {
+        hasFirstItem: !!firstItem,
+        firstItemKeys: firstItem && typeof firstItem === 'object' ? Object.keys(firstItem) : 'not-object'
+      })
       
       // Cache the result
       if (firstItem) {
         await this.cache.set(cacheKey, firstItem as T)
+        console.log('🔍 SDK DEBUG: Cached first item result')
       } else {
         // Cache the null result for a shorter time to avoid unnecessary requests
         await this.cache.set(cacheKey, null as T, 60000) // 1 minute for null results
+        console.log('🔍 SDK DEBUG: Cached null result for first item')
       }
 
       return firstItem as T
     } catch (error) {
+      console.log('🔍 SDK DEBUG: Error in first() method:', error)
       // Don't cache errors, let them bubble up
       throw error
     }
