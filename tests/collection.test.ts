@@ -31,7 +31,7 @@ describe('CollectionQuery', () => {
     
     fetcher = new Fetcher('https://api.vibe-cms.com')
     cache = new BrowserCache({ enabled: true, ttl: 300000, storage: 'localStorage' })
-    collection = new CollectionQuery(fetcher, cache, TEST_PROJECT_ID, TEST_COLLECTION_SLUG)
+    collection = new CollectionQuery(fetcher, cache, TEST_PROJECT_ID, TEST_COLLECTION_SLUG, 'en-US')
   })
 
   afterEach(() => {
@@ -39,16 +39,18 @@ describe('CollectionQuery', () => {
   })
 
   describe('first() method', () => {
-    test('returns first item from collection', async () => {
+    test('returns first item from collection wrapped in CollectionResult', async () => {
       mockFetch.mockResolvedValueOnce(
         createMockResponse(MOCK_PUBLIC_CONTENT_LIST_RESPONSE)
       )
 
       const result = await collection.first()
 
-      expect(result).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result.isSingle).toBe(true)
+      expect(result.count).toBe(1)
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts',
+        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts?locale=en-US',
         expect.any(Object)
       )
     })
@@ -64,7 +66,8 @@ describe('CollectionQuery', () => {
 
       const result = await collection.first()
 
-      expect(result).toBeNull()
+      expect(result.isEmpty).toBe(true)
+      expect(result.raw).toBeNull()
     })
 
     test('uses cached result on second call', async () => {
@@ -77,8 +80,8 @@ describe('CollectionQuery', () => {
       // Second call should use cache
       const result2 = await collection.first()
 
-      expect(result1).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
-      expect(result2).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result1.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result2.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
       expect(mockFetch).toHaveBeenCalledTimes(1)
     })
 
@@ -105,8 +108,9 @@ describe('CollectionQuery', () => {
 
       const result = await collection.many()
 
-      expect(result).toHaveLength(3)
-      expect(result[0]).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result.count).toBe(3)
+      expect(result.toArray()).toHaveLength(3)
+      expect(result.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
     })
 
     test('returns limited items when limit specified', async () => {
@@ -124,8 +128,8 @@ describe('CollectionQuery', () => {
 
       const result = await collection.many({ limit: 2 })
 
-      expect(result).toHaveLength(2)
-      expect(result[0]).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result.count).toBe(2)
+      expect(result.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
     })
 
     test('returns empty array for empty collection', async () => {
@@ -139,7 +143,9 @@ describe('CollectionQuery', () => {
 
       const result = await collection.many()
 
-      expect(result).toEqual([])
+      expect(result.isEmpty).toBe(true)
+      expect(result.count).toBe(0)
+      expect(result.toArray()).toEqual([])
     })
 
     test('caches results with different limits separately', async () => {
@@ -160,9 +166,9 @@ describe('CollectionQuery', () => {
       const result2 = await collection.many({ limit: 2 })
       const result3 = await collection.many()
 
-      expect(result1).toHaveLength(1)
-      expect(result2).toHaveLength(2)
-      expect(result3).toHaveLength(3)
+      expect(result1.count).toBe(1)
+      expect(result2.count).toBe(2)
+      expect(result3.count).toBe(3)
       
       // Each should have made its own API call due to different cache keys
       expect(mockFetch).toHaveBeenCalledTimes(3)
@@ -177,9 +183,10 @@ describe('CollectionQuery', () => {
 
       const result = await collection.all()
 
-      expect(result).toEqual([MOCK_PUBLIC_CONTENT_ITEM])
+      expect(result.count).toBe(1)
+      expect(result.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts',
+        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts?locale=en-US',
         expect.any(Object)
       )
     })
@@ -193,9 +200,9 @@ describe('CollectionQuery', () => {
 
       const result = await collection.item(TEST_ITEM_ID)
 
-      expect(result).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
       expect(mockFetch).toHaveBeenCalledWith(
-        `https://api.vibe-cms.com/api/public/proj_test123/blog-posts/${TEST_ITEM_ID}`,
+        `https://api.vibe-cms.com/api/public/proj_test123/blog-posts/${TEST_ITEM_ID}?locale=en-US`,
         expect.any(Object)
       )
     })
@@ -207,7 +214,8 @@ describe('CollectionQuery', () => {
 
       const result = await collection.item('nonexistent')
 
-      expect(result).toBeNull()
+      expect(result.isEmpty).toBe(true)
+      expect(result.raw).toBeNull()
     })
 
     test('throws error for other API failures', async () => {
@@ -228,8 +236,8 @@ describe('CollectionQuery', () => {
       // Second call should use cache
       const result2 = await collection.item(TEST_ITEM_ID)
 
-      expect(result1).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
-      expect(result2).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result1.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result2.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
       expect(mockFetch).toHaveBeenCalledTimes(1)
     })
   })

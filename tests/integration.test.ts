@@ -46,16 +46,16 @@ describe('VMS SDK Integration', () => {
       // Test chained API calls
       const posts = cms.collection('blog-posts')
       const firstPost = await posts.first()
-      
-      expect(firstPost).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+
+      expect(firstPost.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts',
+        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts?locale=en-US',
         expect.any(Object)
       )
 
       // Second call should use cache
       const cachedPost = await posts.first()
-      expect(cachedPost).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(cachedPost.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
       expect(mockFetch).toHaveBeenCalledTimes(1) // Still only one call
     })
 
@@ -74,8 +74,8 @@ describe('VMS SDK Integration', () => {
       const blogPosts = await cms.collection('blog-posts').all()
       const pages = await cms.collection('pages').all()
 
-      expect(blogPosts).toHaveLength(1)
-      expect(pages).toHaveLength(1)
+      expect(blogPosts.count).toBe(1)
+      expect(pages.count).toBe(1)
       expect(mockFetch).toHaveBeenCalledTimes(2)
     })
 
@@ -116,8 +116,9 @@ describe('VMS SDK Integration', () => {
       const firstPost = await collection.first()
       const allPosts = await collection.all()
 
-      expect(firstPost).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
-      expect(allPosts).toEqual([MOCK_PUBLIC_CONTENT_ITEM]) // Both get the same response
+      expect(firstPost.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(allPosts.count).toBe(1)
+      expect(allPosts.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM) // Both get the same response
       expect(mockFetch).toHaveBeenCalledTimes(2) // Different cache keys mean separate API calls
     })
 
@@ -193,9 +194,9 @@ describe('VMS SDK Integration', () => {
       const firstTen = await collection.many({ limit: 10 })
       const allPosts = await collection.all()
 
-      expect(firstFive).toHaveLength(5)
-      expect(firstTen).toHaveLength(10)
-      expect(allPosts).toHaveLength(25)
+      expect(firstFive.count).toBe(5)
+      expect(firstTen.count).toBe(10)
+      expect(allPosts.count).toBe(25)
     })
 
     test('individual post retrieval by ID', async () => {
@@ -210,7 +211,7 @@ describe('VMS SDK Integration', () => {
 
       // Get by ID
       const postById = await collection.item(TEST_ITEM_ID)
-      expect(postById?.id).toBe(TEST_ITEM_ID)
+      expect(postById.raw?.id).toBe(TEST_ITEM_ID)
     })
 
     test('scoped collection convenience methods', async () => {
@@ -227,9 +228,11 @@ describe('VMS SDK Integration', () => {
       const all = await blogPosts.all()
       const many = await blogPosts.many({ limit: 5 })
 
-      expect(first).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
-      expect(all).toEqual([MOCK_PUBLIC_CONTENT_ITEM])
-      expect(many).toEqual([MOCK_PUBLIC_CONTENT_ITEM])
+      expect(first.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(all.count).toBe(1)
+      expect(all.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(many.count).toBe(1)
+      expect(many.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
     })
   })
 
@@ -247,7 +250,7 @@ describe('VMS SDK Integration', () => {
       await customCms.collection('blog-posts').first()
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://custom-domain.com/api/public/proj_test123/blog-posts',
+        'https://custom-domain.com/api/public/proj_test123/blog-posts?locale=en-US',
         expect.any(Object)
       )
     })
@@ -287,7 +290,7 @@ describe('VMS SDK Integration', () => {
       )
 
       const result = await cms.collection('blog-posts').first()
-      expect(result).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
     })
 
     test('partial failures do not affect other collections', async () => {
@@ -306,7 +309,7 @@ describe('VMS SDK Integration', () => {
       )
 
       const result = await cms.collection('working-collection').first()
-      expect(result).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
     })
   })
 
@@ -327,9 +330,11 @@ describe('VMS SDK Integration', () => {
         collection.all()
       ])
 
-      expect(result1).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
-      expect(result2).toEqual([MOCK_PUBLIC_CONTENT_ITEM])
-      expect(result3).toEqual([MOCK_PUBLIC_CONTENT_ITEM])
+      expect(result1.raw).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result2.count).toBe(1)
+      expect(result2.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
+      expect(result3.count).toBe(1)
+      expect(result3.first()).toEqual(MOCK_PUBLIC_CONTENT_ITEM)
 
       // Each should make its own request due to different cache keys
       expect(mockFetch).toHaveBeenCalledTimes(3)
@@ -359,7 +364,7 @@ describe('VMS SDK Integration', () => {
       const result = await cms.collection('large-collection').all()
       const endTime = Date.now()
 
-      expect(result).toHaveLength(1000)
+      expect(result.count).toBe(1000)
       expect(endTime - startTime).toBeLessThan(1000) // Should complete quickly
     })
   })

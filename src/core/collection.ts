@@ -3,14 +3,16 @@
  * Provides fluent interface for querying published content.
  */
 
-import type { 
-  PublicContentItem, 
-  PublicContentListResponse, 
-  PublicContentResponse 
+import type {
+  PublicContentItem,
+  PublicContentListResponse,
+  PublicContentResponse
 } from '../types/api.js'
 import type { QueryOptions } from '../types/config.js'
 import type { BrowserCache } from './cache.js'
 import type { Fetcher } from './fetcher.js'
+import type { AssetManager } from './asset.js'
+import { CollectionResult } from './result.js'
 
 /**
  * Chainable collection query class.
@@ -21,14 +23,16 @@ export class CollectionQuery<T = PublicContentItem> {
     private readonly fetcher: Fetcher,
     private readonly cache: BrowserCache,
     private readonly projectId: string,
-    private readonly collectionSlug: string
+    private readonly collectionSlug: string,
+    private readonly locale: string,
+    private readonly assetManager: AssetManager
   ) {}
 
   /**
    * Get the first item from the collection.
-   * Returns null if the collection is empty.
+   * Returns a CollectionResult wrapping the first item, or null if the collection is empty.
    */
-  async first(): Promise<T | null> {
+  async first(): Promise<CollectionResult<T>> {
     console.log('🔍 SDK DEBUG: CollectionQuery.first() called for:', {
       projectId: this.projectId,
       collectionSlug: this.collectionSlug
@@ -38,13 +42,14 @@ export class CollectionQuery<T = PublicContentItem> {
       projectId: this.projectId,
       collectionSlug: this.collectionSlug,
       queryType: 'first',
+      locale: this.locale,
     })
 
     // Try cache first
     const cached = await this.cache.get<T>(cacheKey)
     if (cached !== null) {
       console.log('🔍 SDK DEBUG: Cache hit for first()')
-      return cached
+      return new CollectionResult(cached, this.assetManager)
     }
 
     console.log('🔍 SDK DEBUG: Cache miss, making API request to fetcher.get()')
@@ -52,7 +57,7 @@ export class CollectionQuery<T = PublicContentItem> {
     try {
       // Fetch all items from the collection
       const response = await this.fetcher.get<PublicContentListResponse>(
-        `/api/public/${this.projectId}/${this.collectionSlug}`
+        `/api/public/${this.projectId}/${this.collectionSlug}?locale=${encodeURIComponent(this.locale)}`
       )
 
       console.log('🔍 SDK DEBUG: API response received:', {
@@ -78,7 +83,7 @@ export class CollectionQuery<T = PublicContentItem> {
         console.log('🔍 SDK DEBUG: Cached null result for first item')
       }
 
-      return firstItem as T
+      return new CollectionResult(firstItem as T, this.assetManager)
     } catch (error) {
       console.log('🔍 SDK DEBUG: Error in first() method:', error)
       // Don't cache errors, let them bubble up
@@ -88,28 +93,29 @@ export class CollectionQuery<T = PublicContentItem> {
 
   /**
    * Get multiple items from the collection with optional limit.
-   * Returns an empty array if the collection is empty.
+   * Returns a CollectionResult wrapping an array, or empty array if the collection is empty.
    */
-  async many(options: QueryOptions = {}): Promise<T[]> {
+  async many(options: QueryOptions = {}): Promise<CollectionResult<T>> {
     const { limit } = options
     
     const cacheKey = this.cache.generateKey({
       projectId: this.projectId,
       collectionSlug: this.collectionSlug,
       queryType: 'many',
+      locale: this.locale,
       ...(limit ? { params: { limit } } : {}),
     })
 
     // Try cache first
     const cached = await this.cache.get<T[]>(cacheKey)
     if (cached !== null) {
-      return cached
+      return new CollectionResult(cached, this.assetManager)
     }
 
     try {
       // Fetch all items from the collection
       const response = await this.fetcher.get<PublicContentListResponse>(
-        `/api/public/${this.projectId}/${this.collectionSlug}`
+        `/api/public/${this.projectId}/${this.collectionSlug}?locale=${encodeURIComponent(this.locale)}`
       )
 
       let items = response.items as T[]
@@ -122,7 +128,7 @@ export class CollectionQuery<T = PublicContentItem> {
       // Cache the result
       await this.cache.set(cacheKey, items)
 
-      return items
+      return new CollectionResult(items, this.assetManager)
     } catch (error) {
       // Don't cache errors, let them bubble up
       throw error
@@ -133,32 +139,33 @@ export class CollectionQuery<T = PublicContentItem> {
    * Get all items from the collection.
    * Equivalent to many() without a limit.
    */
-  async all(): Promise<T[]> {
+  async all(): Promise<CollectionResult<T>> {
     return this.many()
   }
 
   /**
    * Get a specific item by its ID.
-   * Returns null if the item is not found.
+   * Returns a CollectionResult wrapping the item, or null if the item is not found.
    */
-  async item(itemId: string): Promise<T | null> {
+  async item(itemId: string): Promise<CollectionResult<T>> {
     const cacheKey = this.cache.generateKey({
       projectId: this.projectId,
       collectionSlug: this.collectionSlug,
       queryType: 'item',
       itemId,
+      locale: this.locale,
     })
 
     // Try cache first
     const cached = await this.cache.get<T>(cacheKey)
     if (cached !== null) {
-      return cached
+      return new CollectionResult(cached, this.assetManager)
     }
 
     try {
       // Fetch specific item
       const response = await this.fetcher.get<PublicContentResponse>(
-        `/api/public/${this.projectId}/${this.collectionSlug}/${itemId}`
+        `/api/public/${this.projectId}/${this.collectionSlug}/${itemId}?locale=${encodeURIComponent(this.locale)}`
       )
 
       const item = response.content as T
@@ -166,13 +173,13 @@ export class CollectionQuery<T = PublicContentItem> {
       // Cache the result
       await this.cache.set(cacheKey, item)
 
-      return item
+      return new CollectionResult(item, this.assetManager)
     } catch (error) {
       // Handle 404 errors gracefully for item() method
       if (error instanceof Error && 'status' in error && error.status === 404) {
         // Cache null result for missing items to avoid repeated requests
         await this.cache.set(cacheKey, null as T, 60000) // 1 minute for null results
-        return null
+        return new CollectionResult(null as T, this.assetManager)
       }
       
       // Re-throw other errors
@@ -182,15 +189,15 @@ export class CollectionQuery<T = PublicContentItem> {
 
 
   /**
-   * Clear cache for this collection.
+   * Clear cache for this collection and current locale.
    * Useful for invalidating cached data when content is known to have changed.
    */
   async clearCache(): Promise<void> {
-    // Generate cache key patterns for this collection
+    // Generate cache key patterns for this collection and locale
     const patterns = ['first', 'many', 'all', 'item']
-    
+
     for (const pattern of patterns) {
-      const baseKey = `vms:${this.projectId}:${this.collectionSlug}:${pattern}`
+      const baseKey = `vms:${this.projectId}:${this.locale}:${this.collectionSlug}:${pattern}`
       await this.cache.remove(baseKey)
     }
   }
@@ -202,7 +209,7 @@ export class CollectionQuery<T = PublicContentItem> {
   async getCollectionInfo() {
     try {
       const response = await this.fetcher.get<PublicContentListResponse>(
-        `/api/public/${this.projectId}/${this.collectionSlug}`
+        `/api/public/${this.projectId}/${this.collectionSlug}?locale=${encodeURIComponent(this.locale)}`
       )
 
       return {

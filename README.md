@@ -39,11 +39,14 @@ const cms = createVibeCMS({
   }
 })
 
-// Use the chainable API
+// Use the chainable API with enhanced field extraction
 const firstPost = await cms.collection('blog_posts').first()
-const recentPosts = await cms.collection('blog_posts').many({ limit: 10 })
-const postById = await cms.collection('blog_posts').item('item-123')
-const allPosts = await cms.collection('blog_posts').all()
+const title = firstPost.field('title')           // Extract field directly
+const imageUrl = firstPost.asset_url('featured_image')  // Generate asset URL
+
+const allPosts = await cms.collection('blog_posts').many({ limit: 10 })
+const titles = allPosts.field('title')           // ['Title 1', 'Title 2', ...]
+const imageUrls = allPosts.asset_url('featured_image')  // Bulk asset URLs
 ```
 
 ## API Reference
@@ -113,6 +116,92 @@ Clears cached data for the collection.
 
 ```typescript
 await cms.collection('blog_posts').clearCache()
+```
+
+## 🎯 Enhanced Field Extraction & Asset Handling
+
+The SDK now includes powerful field extraction and asset handling capabilities that make working with content much more efficient.
+
+### Field Extraction
+
+Extract field values directly without accessing `.data` every time:
+
+```typescript
+// Single items
+const post = await cms.collection('blog_posts').first()
+const title = post.field('title')           // Instead of post.raw.data.title
+const author = post.field('author')         // Clean and simple
+const tags = post.field('tags')             // Works with any data type
+
+// Multiple items - get arrays of values
+const posts = await cms.collection('blog_posts').many({ limit: 10 })
+const allTitles = posts.field('title')      // ['Post 1', 'Post 2', ...]
+const allAuthors = posts.field('author')    // ['John', 'Jane', ...]
+const allTags = posts.field('tags')         // [['tech'], ['design', 'ui'], ...]
+```
+
+### Asset Handling
+
+Generate asset URLs and download assets directly from field values:
+
+```typescript
+// Single asset URLs
+const post = await cms.collection('blog_posts').first()
+const imageUrl = post.asset_url('featured_image')
+const thumbnailUrl = post.asset_url('featured_image', { width: 300, height: 200 })
+
+// Multiple asset URLs
+const posts = await cms.collection('blog_posts').many()
+const allImageUrls = posts.asset_url('featured_image')  // Bulk generation!
+
+// Asset arrays (galleries)
+const galleryUrls = post.asset_url('gallery')           // ['url1', 'url2', ...]
+
+// Download assets
+const imageData = await post.download_asset('featured_image')
+console.log(imageData.contentType, imageData.contentLength)
+```
+
+### Collection Result Methods
+
+Enhanced results provide utility methods for easier data manipulation:
+
+```typescript
+const posts = await cms.collection('blog_posts').many()
+
+// Utility properties
+console.log(posts.count)        // Number of items
+console.log(posts.isEmpty)      // Boolean
+console.log(posts.isArray)      // true for .many()/.all()
+console.log(posts.isSingle)     // true for .first()/.item()
+
+// Array-like operations
+posts.map(post => post.data.title)
+posts.filter(post => post.data.featured)
+posts.find(post => post.data.slug === 'target')
+
+// Iteration
+for (const post of posts) {
+  console.log(post.data.title)
+}
+
+// First/last access
+const firstPost = posts.first()
+const lastPost = posts.last()
+```
+
+### Backward Compatibility
+
+Existing code continues to work unchanged via the `.raw` property:
+
+```typescript
+const result = await cms.collection('blog_posts').first()
+
+// Old way (still works)
+const oldTitle = result.raw?.data.title
+
+// New way (recommended)
+const newTitle = result.field('title')
 ```
 
 ## TypeScript Support

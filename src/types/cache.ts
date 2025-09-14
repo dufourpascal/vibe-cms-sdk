@@ -20,14 +20,18 @@ export interface CacheEntry<T = any> {
 export interface CacheKeyComponents {
   /** Project ID */
   projectId: string
-  /** Collection slug */
-  collectionSlug: string
+  /** Collection slug (not used for asset operations) */
+  collectionSlug?: string
   /** Optional item ID for single item queries */
   itemId?: string
-  /** Query type (first, many, all) */
-  queryType: 'first' | 'many' | 'all' | 'item'
+  /** Asset ID for asset operations */
+  assetId?: string
+  /** Query type (first, many, all, asset operations) */
+  queryType: 'first' | 'many' | 'all' | 'item' | 'asset-url' | 'asset-download'
   /** Optional query parameters that affect caching */
   params?: Record<string, any>
+  /** Locale for locale-aware caching */
+  locale?: string
 }
 
 /**

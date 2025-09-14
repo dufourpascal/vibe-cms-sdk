@@ -201,7 +201,7 @@ describe('BrowserCache', () => {
       const key2 = cache.generateKey(components)
 
       expect(key1).toBe(key2)
-      expect(key1).toBe('vms:test-project:blog-posts:first')
+      expect(key1).toBe('vms:test-project:en-US:blog-posts:first')
     })
 
     test('includes item ID in key when provided', () => {
@@ -214,7 +214,7 @@ describe('BrowserCache', () => {
 
       const key = cache.generateKey(components)
 
-      expect(key).toBe('vms:test-project:blog-posts:item:item123')
+      expect(key).toBe('vms:test-project:en-US:blog-posts:item:item123')
     })
 
     test('includes parameter hash when provided', () => {
@@ -227,8 +227,8 @@ describe('BrowserCache', () => {
 
       const key = cache.generateKey(components)
 
-      expect(key).toContain('vms:test-project:blog-posts:many:')
-      expect(key.split(':').length).toBe(5) // Should have param hash
+      expect(key).toContain('vms:test-project:en-US:blog-posts:many:')
+      expect(key.split(':').length).toBe(6) // Should have param hash
     })
 
     test('generates different keys for different parameters', () => {
@@ -250,6 +250,55 @@ describe('BrowserCache', () => {
       const key2 = cache.generateKey(components2)
 
       expect(key1).not.toBe(key2)
+    })
+
+    test('generates different keys for different locales', () => {
+      const baseComponents = {
+        projectId: 'test-project',
+        collectionSlug: 'blog-posts',
+        queryType: 'first' as const,
+      }
+
+      const keyEnUS = cache.generateKey({ ...baseComponents, locale: 'en-US' })
+      const keyFrFR = cache.generateKey({ ...baseComponents, locale: 'fr-FR' })
+      const keyDefault = cache.generateKey(baseComponents) // Should use en-US default
+
+      expect(keyEnUS).toBe('vms:test-project:en-US:blog-posts:first')
+      expect(keyFrFR).toBe('vms:test-project:fr-FR:blog-posts:first')
+      expect(keyDefault).toBe('vms:test-project:en-US:blog-posts:first')
+      expect(keyEnUS).toBe(keyDefault)
+      expect(keyEnUS).not.toBe(keyFrFR)
+    })
+
+    test('clearLocaleCache removes only specified locale keys', async () => {
+      const projectId = 'test-project'
+      const enUSKey = cache.generateKey({
+        projectId,
+        collectionSlug: 'blog-posts',
+        queryType: 'first' as const,
+        locale: 'en-US',
+      })
+      const frFRKey = cache.generateKey({
+        projectId,
+        collectionSlug: 'blog-posts',
+        queryType: 'first' as const,
+        locale: 'fr-FR',
+      })
+
+      // Set data for both locales
+      await cache.set(enUSKey, { data: 'english' })
+      await cache.set(frFRKey, { data: 'french' })
+
+      // Verify both exist
+      expect(await cache.get(enUSKey)).toEqual({ data: 'english' })
+      expect(await cache.get(frFRKey)).toEqual({ data: 'french' })
+
+      // Clear only en-US locale
+      await cache.clearLocaleCache(projectId, 'en-US')
+
+      // Verify en-US is cleared but fr-FR remains
+      expect(await cache.get(enUSKey)).toBeNull()
+      expect(await cache.get(frFRKey)).toEqual({ data: 'french' })
     })
   })
 

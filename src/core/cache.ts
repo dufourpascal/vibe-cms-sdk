@@ -62,7 +62,14 @@ class LocalStorageAdapter implements StorageAdapter {
 
   keys(): string[] {
     try {
-      return Object.keys(localStorage)
+      const keys: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key !== null) {
+          keys.push(key)
+        }
+      }
+      return keys
     } catch {
       return []
     }
@@ -110,7 +117,14 @@ class SessionStorageAdapter implements StorageAdapter {
 
   keys(): string[] {
     try {
-      return Object.keys(sessionStorage)
+      const keys: string[] = []
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        if (key !== null) {
+          keys.push(key)
+        }
+      }
+      return keys
     } catch {
       return []
     }
@@ -272,24 +286,39 @@ export class BrowserCache implements CacheOperations {
 
   /**
    * Generate a cache key from components.
-   * Cache key format: vms:{projectId}:{collectionSlug}:{queryType}[:{itemId}][:{paramHash}]
+   * Collection cache key format: vms:{projectId}:{locale}:{collectionSlug}:{queryType}[:{itemId}][:{paramHash}]
+   * Asset cache key format: vms:{projectId}:{locale}:asset:{queryType}:{assetId}[:{paramHash}]
    */
   generateKey(components: CacheKeyComponents): string {
-    const { projectId, collectionSlug, queryType, itemId, params } = components
-    
-    const keyParts = [CACHE_KEY_PREFIX, projectId, collectionSlug, queryType]
-    
-    if (itemId) {
-      keyParts.push(itemId)
+    const { projectId, collectionSlug, assetId, queryType, itemId, params, locale = 'en-US' } = components
+
+    let keyParts: string[]
+
+    // Handle asset operations differently from collection operations
+    if (queryType === 'asset-url' || queryType === 'asset-download') {
+      if (!assetId) {
+        throw new Error('Asset ID is required for asset operations')
+      }
+      keyParts = [CACHE_KEY_PREFIX, projectId, locale, 'asset', queryType, assetId]
+    } else {
+      // Collection operations
+      if (!collectionSlug) {
+        throw new Error('Collection slug is required for collection operations')
+      }
+      keyParts = [CACHE_KEY_PREFIX, projectId, locale, collectionSlug, queryType]
+
+      if (itemId) {
+        keyParts.push(itemId)
+      }
     }
-    
+
     if (params && Object.keys(params).length > 0) {
       // Create a deterministic hash of the parameters
       const paramString = JSON.stringify(params, Object.keys(params).sort())
       const paramHash = this.simpleHash(paramString)
       keyParts.push(paramHash)
     }
-    
+
     return keyParts.join(':')
   }
 
@@ -305,13 +334,35 @@ export class BrowserCache implements CacheOperations {
     try {
       const keys = this.storage.keys()
       const vmsKeys = keys.filter(key => key.startsWith(`${CACHE_KEY_PREFIX}:`))
-      
+
       for (const key of vmsKeys) {
         // Trigger get() which will automatically remove expired entries
         await this.get(key)
       }
     } catch {
       // Ignore cleanup errors
+    }
+  }
+
+  /**
+   * Clear all cache entries for a specific project and locale.
+   * Useful for invalidating cache when locale-specific content changes.
+   */
+  async clearLocaleCache(projectId: string, locale: string): Promise<void> {
+    if (!this.enabled) {
+      return
+    }
+
+    try {
+      const keys = this.storage.keys()
+      const localePrefix = `${CACHE_KEY_PREFIX}:${projectId}:${locale}:`
+      const localeKeys = keys.filter(key => key.startsWith(localePrefix))
+
+      for (const key of localeKeys) {
+        this.storage.removeItem(key)
+      }
+    } catch {
+      // Ignore clear errors
     }
   }
 

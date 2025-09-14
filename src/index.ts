@@ -15,6 +15,10 @@
  * const recentPosts = await cms.collection('blog_posts').many({ limit: 10 })
  * const allPosts = await cms.collection('blog_posts').all()
  * const postBySlug = await cms.collection('blog_posts').slug('my-post-slug')
+ *
+ * // Asset management for files and images
+ * const imageUrl = cms.asset_url('asset-id', { width: 800, height: 600 })
+ * const assetData = await cms.download_asset('asset-id')
  * ```
  */
 
@@ -22,13 +26,15 @@
 import { VibeCMSClient } from './core/client.js'
 import { BrowserCache } from './core/cache.js'
 import { CollectionQuery } from './core/collection.js'
+import { CollectionResult } from './core/result.js'
 import { Fetcher } from './core/fetcher.js'
+import { AssetManager } from './core/asset.js'
 
 // Types
 export * from './types/index.js'
 
 // Core class exports (for advanced usage)
-export { VibeCMSClient, BrowserCache, CollectionQuery, Fetcher }
+export { VibeCMSClient, BrowserCache, CollectionQuery, CollectionResult, Fetcher, AssetManager }
 
 // Main factory function
 export { createVibeCMS } from './factory.js'

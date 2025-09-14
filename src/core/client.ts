@@ -2,21 +2,24 @@
  * Main VMS client class for interacting with published content.
  */
 
-import type { 
-  VibeCMSConfig, 
+import type {
+  VibeCMSConfig,
   ResolvedVibeCMSConfig,
   VibeCMSError
 } from '../types/config.js'
-import type { PublicContentItem } from '../types/api.js'
+import { validateLocale } from '../types/config.js'
+import type { PublicContentItem, AssetUrlOptions, DownloadAssetOptions, AssetData } from '../types/api.js'
 import { BrowserCache } from './cache.js'
 import { Fetcher } from './fetcher.js'
 import { CollectionQuery } from './collection.js'
+import { AssetManager } from './asset.js'
 
 /**
  * Default configuration values.
  */
 const DEFAULT_CONFIG = {
   baseUrl: 'https://api.vibe-cms.com',
+  locale: 'en-US',
   cache: {
     enabled: true,
     ttl: 300000, // 5 minutes
@@ -43,10 +46,12 @@ const COLLECTION_SLUG_PATTERN = /^[a-z0-9_-]+$/
 export class VibeCMSClient {
   public readonly projectId: string
   public readonly baseUrl: string
-  
+
   private readonly config: ResolvedVibeCMSConfig
   private readonly fetcher: Fetcher
   private readonly browserCache: BrowserCache
+  private assetManager: AssetManager
+  private currentLocale: string
 
   constructor(config: VibeCMSConfig) {
     // Validate project ID format
@@ -60,10 +65,19 @@ export class VibeCMSClient {
       )
     }
 
+    // Validate locale if provided
+    const locale = config.locale || DEFAULT_CONFIG.locale
+    if (!validateLocale(locale)) {
+      throw new Error(
+        `VMS SDK: Invalid locale format '${locale}'. Must be BCP 47 format (e.g., 'en-US', 'fr', 'zh-CN') with 2-20 characters.`
+      )
+    }
+
     // Resolve configuration with defaults
     this.config = {
       projectId: config.projectId,
       baseUrl: config.baseUrl || DEFAULT_CONFIG.baseUrl,
+      locale,
       cache: {
         enabled: config.cache?.enabled ?? DEFAULT_CONFIG.cache.enabled,
         ttl: config.cache?.ttl ?? DEFAULT_CONFIG.cache.ttl,
@@ -74,10 +88,17 @@ export class VibeCMSClient {
     // Store public properties
     this.projectId = this.config.projectId
     this.baseUrl = this.config.baseUrl
+    this.currentLocale = this.config.locale
 
     // Initialize core components
     this.fetcher = new Fetcher(this.config.baseUrl)
     this.browserCache = new BrowserCache(this.config.cache)
+    this.assetManager = new AssetManager(
+      this.fetcher,
+      this.browserCache,
+      this.projectId,
+      this.currentLocale
+    )
   }
 
   /**
@@ -100,8 +121,38 @@ export class VibeCMSClient {
       this.fetcher,
       this.browserCache,
       this.projectId,
-      collectionSlug
+      collectionSlug,
+      this.currentLocale,
+      this.assetManager
     )
+  }
+
+  /**
+   * Set the current locale for content requests.
+   * This affects all subsequent content queries and uses separate cache per locale.
+   */
+  setLocale(locale: string): void {
+    if (!validateLocale(locale)) {
+      throw new Error(
+        `VMS SDK: Invalid locale format '${locale}'. Must be BCP 47 format (e.g., 'en-US', 'fr', 'zh-CN') with 2-20 characters.`
+      )
+    }
+    this.currentLocale = locale
+
+    // Create new asset manager with updated locale
+    this.assetManager = new AssetManager(
+      this.fetcher,
+      this.browserCache,
+      this.projectId,
+      locale
+    )
+  }
+
+  /**
+   * Get the current locale being used for content requests.
+   */
+  getLocale(): string {
+    return this.currentLocale
   }
 
   /**
@@ -118,6 +169,19 @@ export class VibeCMSClient {
    */
   async cleanupCache(): Promise<void> {
     await this.browserCache.cleanup()
+  }
+
+  /**
+   * Clear cached data for a specific locale.
+   * Useful when you know content for a particular locale has been updated.
+   */
+  async clearLocaleCache(locale: string): Promise<void> {
+    if (!validateLocale(locale)) {
+      throw new Error(
+        `VMS SDK: Invalid locale format '${locale}'. Must be BCP 47 format (e.g., 'en-US', 'fr', 'zh-CN') with 2-20 characters.`
+      )
+    }
+    await this.browserCache.clearLocaleCache(this.projectId, locale)
   }
 
   /**
@@ -204,12 +268,45 @@ export class VibeCMSClient {
   }
 
   /**
+   * Generate a browser-cacheable URL for an asset.
+   * This URL can be used directly in HTML img tags, download links, etc.
+   *
+   * @param assetId - The ID of the asset
+   * @param options - Optional parameters for image transformation
+   * @returns A complete URL that browsers can use to fetch the asset
+   */
+  asset_url(assetId: string, options?: AssetUrlOptions): string {
+    return this.assetManager.generateAssetUrl(assetId, options)
+  }
+
+  /**
+   * Download an asset and return the binary data with metadata.
+   * This method handles caching automatically and is useful when you need
+   * to process the asset data in your application.
+   *
+   * @param assetId - The ID of the asset to download
+   * @param options - Optional parameters for download and image transformation
+   * @returns Promise that resolves to asset data including binary content
+   */
+  async download_asset(assetId: string, options?: DownloadAssetOptions): Promise<AssetData> {
+    return this.assetManager.downloadAsset(assetId, options)
+  }
+
+  /**
+   * Clear all cached asset data for this project.
+   * Useful when you know assets have been updated and want to force fresh requests.
+   */
+  async clearAssetCache(): Promise<void> {
+    await this.assetManager.clearAssetCache()
+  }
+
+  /**
    * Create a scoped client for a specific collection.
    * This is a convenience method that returns an object with methods bound to a specific collection.
    */
   scopedCollection<T = PublicContentItem>(collectionSlug: string) {
     const collection = this.collection<T>(collectionSlug)
-    
+
     return {
       first: () => collection.first(),
       many: (options?: Parameters<typeof collection.many>[0]) => collection.many(options),

@@ -81,3 +81,41 @@ export interface PublicNotFoundResponse {
   /** HTTP status code (always 404) */
   status_code: 404
 }
+
+/**
+ * Options for asset URL generation and downloading.
+ */
+export interface AssetUrlOptions {
+  /** Image variant/format (e.g., 'thumbnail', 'medium', 'large') */
+  variant?: string
+  /** Image width in pixels */
+  width?: number
+  /** Image height in pixels */
+  height?: number
+}
+
+/**
+ * Options for downloading assets with additional parameters.
+ */
+export interface DownloadAssetOptions extends AssetUrlOptions {
+  /** Whether to use cache for the download (default: true) */
+  useCache?: boolean
+  /** Custom cache TTL for this asset (default: uses client cache TTL) */
+  cacheTtl?: number
+}
+
+/**
+ * Downloaded asset data structure.
+ */
+export interface AssetData {
+  /** Asset binary data */
+  data: ArrayBuffer
+  /** Content type (MIME type) */
+  contentType: string
+  /** Content length in bytes */
+  contentLength: number
+  /** Asset file name if available */
+  fileName?: string | undefined
+  /** Asset ID */
+  assetId: string
+}

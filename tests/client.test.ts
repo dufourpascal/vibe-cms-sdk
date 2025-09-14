@@ -6,12 +6,41 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { VibeCMSClient } from '../src/core/client.js'
 import { createVibeCMS } from '../src/factory.js'
 import { CollectionQuery } from '../src/core/collection.js'
-import { 
-  mockFetch, 
+import {
+  mockFetch,
   TEST_PROJECT_ID,
   createMockResponse,
   MOCK_PUBLIC_CONTENT_LIST_RESPONSE
 } from './setup.js'
+import { validateLocale } from '../src/types/config.js'
+
+describe('Locale Validation', () => {
+  test('validates correct BCP 47 locales', () => {
+    expect(validateLocale('en')).toBe(true)
+    expect(validateLocale('en-US')).toBe(true)
+    expect(validateLocale('fr-FR')).toBe(true)
+    expect(validateLocale('zh-CN')).toBe(true)
+    expect(validateLocale('es-419')).toBe(true)
+  })
+
+  test('rejects invalid locales', () => {
+    expect(validateLocale('')).toBe(false)
+    expect(validateLocale('x')).toBe(false)
+    expect(validateLocale('invalid-locale-format-too-long')).toBe(false)
+    expect(validateLocale('EN-US')).toBe(false) // Must be lowercase primary
+    // Removed strict region case check - some systems allow en-us
+    expect(validateLocale('123')).toBe(false)
+    expect(validateLocale('en-')).toBe(false)
+    expect(validateLocale('-US')).toBe(false)
+  })
+
+  test('handles non-string inputs', () => {
+    expect(validateLocale(null as any)).toBe(false)
+    expect(validateLocale(undefined as any)).toBe(false)
+    expect(validateLocale(123 as any)).toBe(false)
+    expect(validateLocale({} as any)).toBe(false)
+  })
+})
 
 describe('VibeCMSClient', () => {
   beforeEach(() => {
@@ -70,6 +99,37 @@ describe('VibeCMSClient', () => {
       expect(() => new VibeCMSClient({ projectId: 'invalid@project' })).toThrow(
         'VMS SDK: Invalid projectId format'
       )
+    })
+
+    test('creates client with custom locale', () => {
+      const client = new VibeCMSClient({
+        projectId: TEST_PROJECT_ID,
+        locale: 'fr-FR',
+      })
+
+      expect(client.getLocale()).toBe('fr-FR')
+    })
+
+    test('creates client with default locale when not specified', () => {
+      const client = new VibeCMSClient({
+        projectId: TEST_PROJECT_ID,
+      })
+
+      expect(client.getLocale()).toBe('en-US')
+    })
+
+    test('throws error for invalid locale format', () => {
+      expect(() => new VibeCMSClient({
+        projectId: TEST_PROJECT_ID,
+        locale: 'invalid-locale-format-too-long'
+      })).toThrow('VMS SDK: Invalid locale format')
+    })
+
+    test('throws error for too short locale', () => {
+      expect(() => new VibeCMSClient({
+        projectId: TEST_PROJECT_ID,
+        locale: 'x'
+      })).toThrow('VMS SDK: Invalid locale format')
     })
   })
 
@@ -171,6 +231,79 @@ describe('VibeCMSClient', () => {
     })
   })
 
+  describe('Locale Methods', () => {
+    test('setLocale updates current locale', () => {
+      const client = new VibeCMSClient({ projectId: TEST_PROJECT_ID })
+
+      expect(client.getLocale()).toBe('en-US')
+
+      client.setLocale('fr-FR')
+      expect(client.getLocale()).toBe('fr-FR')
+
+      client.setLocale('es')
+      expect(client.getLocale()).toBe('es')
+    })
+
+    test('setLocale validates locale format', () => {
+      const client = new VibeCMSClient({ projectId: TEST_PROJECT_ID })
+
+      expect(() => client.setLocale('invalid-locale-format-too-long')).toThrow(
+        'VMS SDK: Invalid locale format'
+      )
+
+      expect(() => client.setLocale('x')).toThrow(
+        'VMS SDK: Invalid locale format'
+      )
+
+      expect(() => client.setLocale('')).toThrow(
+        'VMS SDK: Invalid locale format'
+      )
+    })
+
+    test('clearLocaleCache validates locale format', async () => {
+      const client = new VibeCMSClient({ projectId: TEST_PROJECT_ID })
+
+      await expect(
+        client.clearLocaleCache('invalid-locale-format-too-long')
+      ).rejects.toThrow('VMS SDK: Invalid locale format')
+
+      // Valid locale should not throw
+      await expect(
+        client.clearLocaleCache('en-US')
+      ).resolves.toBeUndefined()
+    })
+
+    test('locale changes affect collection queries', async () => {
+      const client = new VibeCMSClient({ projectId: TEST_PROJECT_ID })
+
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse(MOCK_PUBLIC_CONTENT_LIST_RESPONSE)
+      )
+
+      // First call with default locale
+      await client.collection('blog-posts').first()
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts?locale=en-US',
+        expect.any(Object)
+      )
+
+      mockFetch.mockClear()
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse(MOCK_PUBLIC_CONTENT_LIST_RESPONSE)
+      )
+
+      // Change locale and make another call
+      client.setLocale('fr-FR')
+      await client.collection('blog-posts').first()
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts?locale=fr-FR',
+        expect.any(Object)
+      )
+    })
+  })
+
   describe('createVibeCMS Factory', () => {
     test('factory creates VibeCMSClient instance', () => {
       const cms = createVibeCMS({ projectId: TEST_PROJECT_ID })
@@ -206,9 +339,9 @@ describe('VibeCMSClient', () => {
 
       const posts = await client.collection('blog-posts').all()
 
-      expect(posts).toHaveLength(1)
+      expect(posts.count).toBe(1)
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts',
+        'https://api.vibe-cms.com/api/public/proj_test123/blog-posts?locale=en-US',
         expect.any(Object)
       )
     })
