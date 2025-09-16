@@ -32,6 +32,7 @@ import { createVibeCMS } from 'vibe-cms-sdk'
 const cms = createVibeCMS({
   projectId: 'your-project-id',
   baseUrl: 'https://api.vibe-cms.com', // optional, defaults to this
+  locale: 'en-US',  // optional, defaults to 'en-US'
   cache: {
     enabled: true,    // optional, defaults to true
     ttl: 300000,     // optional, 5 minutes default
@@ -58,6 +59,7 @@ Creates a new CMS client instance.
 **Parameters:**
 - `config.projectId` (string, required): Your Vibe CMS project ID
 - `config.baseUrl` (string, optional): API base URL, defaults to `https://api.vibe-cms.com`
+- `config.locale` (string, optional): Default locale for content requests, defaults to `'en-US'`
 - `config.cache` (object, optional): Caching configuration
 
 **Cache Configuration:**
@@ -106,6 +108,34 @@ Returns a specific item by ID, or `null` if not found.
 
 ```typescript
 const post = await cms.collection('blog_posts').item('item-123')
+```
+
+### Localization Methods
+
+#### `.setLocale(locale)`
+
+Sets the current locale for content requests. This affects all subsequent content queries and uses separate cache per locale.
+
+```typescript
+cms.setLocale('fr-FR')  // Set to French (France)
+cms.setLocale('es')     // Set to Spanish
+```
+
+#### `.getLocale()`
+
+Gets the current locale.
+
+```typescript
+const currentLocale = cms.getLocale()  // Returns current locale, e.g., 'en-US'
+```
+
+#### `.clearLocaleCache(locale?)`
+
+Clears cached data for a specific locale, or current locale if not specified.
+
+```typescript
+await cms.clearLocaleCache('fr-FR')  // Clear French cache
+await cms.clearLocaleCache()         // Clear current locale cache
 ```
 
 ### Caching Methods
@@ -202,6 +232,118 @@ const oldTitle = result.raw?.data.title
 
 // New way (recommended)
 const newTitle = result.field('title')
+```
+
+## 🌍 Internationalization & Localization
+
+The SDK provides comprehensive locale support for internationalized content with automatic cache separation and asset URL localization.
+
+### Basic Locale Management
+
+```typescript
+const cms = createVibeCMS({
+  projectId: 'your-project-id',
+  locale: 'en-US'  // Set default locale
+})
+
+// Switch locales dynamically
+cms.setLocale('fr-FR')
+const frenchPosts = await cms.collection('blog_posts').many()
+
+cms.setLocale('es-ES')
+const spanishPosts = await cms.collection('blog_posts').many()
+
+// Check current locale
+console.log(cms.getLocale())  // 'es-ES'
+```
+
+### Locale-Aware Asset URLs
+
+Asset URLs automatically include the current locale parameter:
+
+```typescript
+cms.setLocale('fr-FR')
+
+const post = await cms.collection('blog_posts').first()
+const imageUrl = post.asset_url('featured_image')
+// URL will include: ...&locale=fr-FR
+
+// Bulk asset URLs maintain locale consistency
+const posts = await cms.collection('blog_posts').many()
+const allImageUrls = posts.asset_url('featured_image')
+// All URLs include the French locale parameter
+```
+
+### Automatic Cache Separation
+
+Each locale maintains its own cache to ensure content consistency:
+
+```typescript
+// English content cached separately
+cms.setLocale('en-US')
+const englishPosts = await cms.collection('blog_posts').many()
+
+// French content gets its own cache
+cms.setLocale('fr-FR')
+const frenchPosts = await cms.collection('blog_posts').many()
+
+// Clear cache for specific locale
+await cms.clearLocaleCache('fr-FR')  // Only clears French cache
+await cms.clearLocaleCache()         // Clears current locale (French)
+```
+
+### Practical Multi-Language Example
+
+```typescript
+class BlogManager {
+  private cms = createVibeCMS({ projectId: 'blog-project' })
+
+  async getPostsByLocale(locale: string) {
+    this.cms.setLocale(locale)
+
+    const posts = await this.cms.collection('blog_posts').many()
+    return posts.map(post => ({
+      title: post.field('title'),
+      content: post.field('content'),
+      imageUrl: post.asset_url('featured_image'),
+      locale: this.cms.getLocale()
+    }))
+  }
+
+  async getAllLocalizedPosts() {
+    const locales = ['en-US', 'fr-FR', 'es-ES', 'de-DE']
+    const results = {}
+
+    for (const locale of locales) {
+      results[locale] = await this.getPostsByLocale(locale)
+    }
+
+    return results
+  }
+}
+
+// Usage
+const blog = new BlogManager()
+const allPosts = await blog.getAllLocalizedPosts()
+// Returns: { 'en-US': [...], 'fr-FR': [...], 'es-ES': [...], 'de-DE': [...] }
+```
+
+### Supported Locale Formats
+
+The SDK validates locales using BCP 47 standards:
+
+```typescript
+// Valid formats
+cms.setLocale('en')       // Language only
+cms.setLocale('en-US')    // Language-Country
+cms.setLocale('fr-FR')    // Language-Country
+cms.setLocale('zh-CN')    // Language-Country
+cms.setLocale('es-419')   // Language-Region
+
+// Invalid formats (will throw errors)
+cms.setLocale('EN-US')    // Uppercase not allowed
+cms.setLocale('invalid-locale-format-too-long')  // Too long
+cms.setLocale('')         // Empty string
 ```
 
 ## TypeScript Support
