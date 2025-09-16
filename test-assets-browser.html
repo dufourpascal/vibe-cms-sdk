@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeCMS SDK - Asset Loading Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-image {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            margin: 10px;
+            display: block;
+        }
+        .test-image.loaded {
+            border-color: #4CAF50;
+        }
+        .test-image.error {
+            border-color: #f44336;
+            background: #ffebee;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        .url-display {
+            font-family: monospace;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.pending { background: #fff3cd; color: #856404; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .download-test {
+            margin: 20px 0;
+        }
+
+        .download-test button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .download-test button:hover {
+            background: #005a8b;
+        }
+
+        .download-result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ VibeCMS SDK Asset Loading Test</h1>
+
+        <div class="status pending" id="sdkStatus">
+            Loading SDK...
+        </div>
+
+        <div class="test-section">
+            <h2>Test Configuration</h2>
+            <p><strong>Project ID:</strong> 9D57HEG7F54H624GC2C455</p>
+            <p><strong>Asset ID:</strong> xipxoehgsad</p>
+            <p><strong>Base URL:</strong> <span id="baseUrl">Loading...</span></p>
+        </div>
+
+        <div class="test-section">
+            <h2>Image URL Generation Tests</h2>
+
+            <div class="grid">
+                <div>
+                    <h3>Original Size</h3>
+                    <div class="url-display" id="url-original"></div>
+                    <img id="img-original" class="test-image" alt="Original image" style="display: none;">
+                    <div class="status pending" id="status-original">Loading...</div>
+                </div>
+
+                <div>
+                    <h3>Width: 400px</h3>
+                    <div class="url-display" id="url-width"></div>
+                    <img id="img-width" class="test-image" alt="400px width" style="display: none;">
+                    <div class="status pending" id="status-width">Loading...</div>
+                </div>
+
+                <div>
+                    <h3>Height: 300px</h3>
+                    <div class="url-display" id="url-height"></div>
+                    <img id="img-height" class="test-image" alt="300px height" style="display: none;">
+                    <div class="status pending" id="status-height">Loading...</div>
+                </div>
+
+                <div>
+                    <h3>800x600px</h3>
+                    <div class="url-display" id="url-both"></div>
+                    <img id="img-both" class="test-image" alt="800x600" style="display: none;">
+                    <div class="status pending" id="status-both">Loading...</div>
+                </div>
+
+                <div>
+                    <h3>Thumbnail Variant</h3>
+                    <div class="url-display" id="url-thumbnail"></div>
+                    <img id="img-thumbnail" class="test-image" alt="Thumbnail" style="display: none;">
+                    <div class="status pending" id="status-thumbnail">Loading...</div>
+                </div>
+
+                <div>
+                    <h3>Medium Variant + Size</h3>
+                    <div class="url-display" id="url-variant-size"></div>
+                    <img id="img-variant-size" class="test-image" alt="Medium 600x400" style="display: none;">
+                    <div class="status pending" id="status-variant-size">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Asset Download Tests</h2>
+            <div class="download-test">
+                <button onclick="testDownload('original')">Download Original</button>
+                <button onclick="testDownload('thumbnail')">Download Thumbnail</button>
+                <button onclick="testDownload('resized')">Download 500x500</button>
+                <div id="download-results"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Error Handling Tests</h2>
+            <div>
+                <h3>Invalid Asset ID</h3>
+                <div class="url-display" id="url-invalid"></div>
+                <img id="img-invalid" class="test-image" alt="Invalid asset" style="display: none;">
+                <div class="status pending" id="status-invalid">Loading...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Summary</h2>
+            <div id="summary">
+                <div class="status pending">Running tests...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import the SDK -->
+    <script type="module">
+        // Test configuration
+        const PROJECT_ID = '9D57HEG7F54H624GC2C455';
+        const ASSET_ID = 'xipxoehgsad';
+        const INVALID_ASSET_ID = 'nonexistent-asset-id';
+
+        let cms;
+        let testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            errors: []
+        };
+
+        // Initialize SDK
+        async function initSDK() {
+            try {
+                // Try to detect if we're running with a local server
+                const isLocalhost = window.location.hostname === 'localhost' ||
+                                   window.location.hostname === '127.0.0.1';
+
+                const baseUrl = isLocalhost ? 'http://localhost:8000' : 'https://api.vibe-cms.com';
+
+                // Import from the built SDK
+                const { createVibeCMS } = await import('./dist/index.js');
+
+                cms = createVibeCMS({
+                    projectId: PROJECT_ID,
+                    baseUrl: baseUrl
+                });
+
+                document.getElementById('baseUrl').textContent = baseUrl;
+                document.getElementById('sdkStatus').className = 'status success';
+                document.getElementById('sdkStatus').textContent = 'SDK initialized successfully!';
+
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize SDK:', error);
+                document.getElementById('sdkStatus').className = 'status error';
+                document.getElementById('sdkStatus').textContent = `Failed to initialize SDK: ${error.message}`;
+                return false;
+            }
+        }
+
+        // Test image loading
+        function testImage(id, url, description) {
+            testResults.total++;
+
+            const img = document.getElementById(`img-${id}`);
+            const status = document.getElementById(`status-${id}`);
+            const urlDisplay = document.getElementById(`url-${id}`);
+
+            urlDisplay.textContent = url;
+
+            return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    img.style.display = 'none';
+                    status.className = 'status error';
+                    status.textContent = 'Timeout - Image took too long to load';
+                    testResults.failed++;
+                    testResults.errors.push(`${description}: Timeout`);
+                    resolve(false);
+                }, 10000); // 10 second timeout
+
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    img.style.display = 'block';
+                    img.className = 'test-image loaded';
+                    status.className = 'status success';
+                    status.textContent = `✅ Loaded successfully (${img.naturalWidth}×${img.naturalHeight})`;
+                    testResults.passed++;
+                    resolve(true);
+                };
+
+                img.onerror = () => {
+                    clearTimeout(timeout);
+                    img.style.display = 'none';
+                    status.className = 'status error';
+                    status.textContent = '❌ Failed to load image';
+                    testResults.failed++;
+                    testResults.errors.push(`${description}: Failed to load`);
+                    resolve(false);
+                };
+
+                img.src = url;
+            });
+        }
+
+        // Test asset download
+        window.testDownload = async function(type) {
+            const resultsDiv = document.getElementById('download-results');
+
+            try {
+                let options = {};
+                let description = '';
+
+                switch(type) {
+                    case 'thumbnail':
+                        options = { variant: 'thumbnail' };
+                        description = 'Thumbnail variant';
+                        break;
+                    case 'resized':
+                        options = { width: 500, height: 500 };
+                        description = '500x500 resized';
+                        break;
+                    default:
+                        description = 'Original';
+                }
+
+                const startTime = Date.now();
+                const assetData = await cms.download_asset(ASSET_ID, options);
+                const endTime = Date.now();
+
+                const result = document.createElement('div');
+                result.className = 'download-result';
+                result.innerHTML = `
+                    <strong>${description} Download:</strong><br>
+                    ✅ Success<br>
+                    Size: ${assetData.contentLength} bytes<br>
+                    Type: ${assetData.contentType}<br>
+                    Time: ${endTime - startTime}ms<br>
+                    File: ${assetData.fileName || 'N/A'}
+                `;
+                resultsDiv.appendChild(result);
+
+            } catch (error) {
+                const result = document.createElement('div');
+                result.className = 'download-result';
+                result.innerHTML = `
+                    <strong>${description} Download:</strong><br>
+                    ❌ Error: ${error.message}
+                `;
+                resultsDiv.appendChild(result);
+            }
+        };
+
+        // Update test summary
+        function updateSummary() {
+            const summary = document.getElementById('summary');
+            const percentage = testResults.total > 0 ? Math.round((testResults.passed / testResults.total) * 100) : 0;
+
+            let statusClass = 'success';
+            if (testResults.failed > 0) {
+                statusClass = testResults.passed > testResults.failed ? 'pending' : 'error';
+            }
+
+            let errorDetails = '';
+            if (testResults.errors.length > 0) {
+                errorDetails = '<br><strong>Errors:</strong><br>' + testResults.errors.join('<br>');
+            }
+
+            summary.innerHTML = `
+                <div class="status ${statusClass}">
+                    <strong>Test Results:</strong><br>
+                    Total: ${testResults.total}<br>
+                    Passed: ${testResults.passed}<br>
+                    Failed: ${testResults.failed}<br>
+                    Success Rate: ${percentage}%
+                    ${errorDetails}
+                </div>
+            `;
+        }
+
+        // Run all tests
+        async function runTests() {
+            const sdkInitialized = await initSDK();
+
+            if (!sdkInitialized) {
+                return;
+            }
+
+            // Test different image configurations
+            const tests = [
+                {
+                    id: 'original',
+                    description: 'Original image',
+                    options: {}
+                },
+                {
+                    id: 'width',
+                    description: 'Width 400px',
+                    options: { width: 400 }
+                },
+                {
+                    id: 'height',
+                    description: 'Height 300px',
+                    options: { height: 300 }
+                },
+                {
+                    id: 'both',
+                    description: '800x600',
+                    options: { width: 800, height: 600 }
+                },
+                {
+                    id: 'thumbnail',
+                    description: 'Thumbnail variant',
+                    options: { variant: 'thumbnail' }
+                },
+                {
+                    id: 'variant-size',
+                    description: 'Medium variant 600x400',
+                    options: { variant: 'medium', width: 600, height: 400 }
+                }
+            ];
+
+            // Run image loading tests
+            for (const test of tests) {
+                try {
+                    const url = cms.asset_url(ASSET_ID, test.options);
+                    await testImage(test.id, url, test.description);
+                } catch (error) {
+                    testResults.total++;
+                    testResults.failed++;
+                    testResults.errors.push(`${test.description}: ${error.message}`);
+
+                    const status = document.getElementById(`status-${test.id}`);
+                    status.className = 'status error';
+                    status.textContent = `❌ Error: ${error.message}`;
+                }
+
+                // Update summary after each test
+                updateSummary();
+
+                // Small delay between tests
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // Test error handling
+            try {
+                const invalidUrl = cms.asset_url(INVALID_ASSET_ID);
+                document.getElementById('url-invalid').textContent = invalidUrl;
+                await testImage('invalid', invalidUrl, 'Invalid asset ID');
+            } catch (error) {
+                testResults.total++;
+                // For this test, an error is expected, so we count it as passed
+                testResults.passed++;
+
+                const status = document.getElementById('status-invalid');
+                status.className = 'status success';
+                status.textContent = `✅ Correctly handled invalid asset ID: ${error.message}`;
+            }
+
+            // Final summary update
+            updateSummary();
+        }
+
+        // Start tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
