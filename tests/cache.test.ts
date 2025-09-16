@@ -333,13 +333,20 @@ describe('BrowserCache', () => {
     })
 
     test('cleanup ignores non-VMS keys', async () => {
-      // Mock Object.keys to return mixed keys
-      const originalObjectKeys = Object.keys
-      Object.keys = vi.fn().mockReturnValue([
-        'vms:test:key1',
-        'other-app:key',
-        'vms:test:key2',
-      ])
+      // Mock localStorage.key and localStorage.length to simulate mixed keys
+      const originalKey = localStorage.key
+      const originalLength = Object.getOwnPropertyDescriptor(localStorage, 'length')
+
+      // Mock localStorage to have 3 items with mixed keys
+      Object.defineProperty(localStorage, 'length', {
+        value: 3,
+        configurable: true,
+      })
+
+      vi.mocked(localStorage.key).mockImplementation((index: number) => {
+        const keys = ['vms:test:key1', 'other-app:key', 'vms:test:key2']
+        return keys[index] || null
+      })
 
       await cache.cleanup()
 
@@ -347,9 +354,12 @@ describe('BrowserCache', () => {
       expect(localStorage.getItem).toHaveBeenCalledWith('vms:test:key1')
       expect(localStorage.getItem).toHaveBeenCalledWith('vms:test:key2')
       expect(localStorage.getItem).not.toHaveBeenCalledWith('other-app:key')
-      
-      // Restore Object.keys
-      Object.keys = originalObjectKeys
+
+      // Restore original implementations
+      localStorage.key = originalKey
+      if (originalLength) {
+        Object.defineProperty(localStorage, 'length', originalLength)
+      }
     })
   })
 
