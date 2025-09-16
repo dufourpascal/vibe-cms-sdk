@@ -1,6 +1,6 @@
 {
   "name": "vibe-cms-sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Framework-agnostic TypeScript SDK for Vibe CMS - AI-powered content management system",
   "keywords": [
     "cms",
