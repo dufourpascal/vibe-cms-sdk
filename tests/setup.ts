@@ -63,18 +63,11 @@ export const MOCK_PUBLIC_COLLECTION = {
   is_singleton: false,
 }
 
-export const MOCK_PUBLIC_CONTENT_RESPONSE = {
-  content: MOCK_PUBLIC_CONTENT_ITEM,
-  collection: MOCK_PUBLIC_COLLECTION,
-  project_id: TEST_PROJECT_ID,
-}
+// Public API returns items directly (not wrapped in response object)
+export const MOCK_PUBLIC_CONTENT_RESPONSE = MOCK_PUBLIC_CONTENT_ITEM
 
-export const MOCK_PUBLIC_CONTENT_LIST_RESPONSE = {
-  items: [MOCK_PUBLIC_CONTENT_ITEM],
-  collection: MOCK_PUBLIC_COLLECTION,
-  project_id: TEST_PROJECT_ID,
-  total: 1,
-}
+// Public API returns array of items directly
+export const MOCK_PUBLIC_CONTENT_LIST_RESPONSE = [MOCK_PUBLIC_CONTENT_ITEM]
 
 // Helper to create a successful fetch response
 export function createMockResponse<T>(data: T, status = 200) {

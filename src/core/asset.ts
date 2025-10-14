@@ -52,7 +52,7 @@ export class AssetManager {
 
     // Build the base URL following the public API pattern
     const baseUrl = this.fetcher['baseUrl'] // Access private property for URL construction
-    let url = `${baseUrl}/api/public/assets/${this.projectId}/${assetId}`
+    let url = `${baseUrl}/api/assets/${this.projectId}/${assetId}`
 
     // Add query parameters if provided
     const params = new URLSearchParams()
@@ -74,9 +74,6 @@ export class AssetManager {
       }
       params.append('height', options.height.toString())
     }
-
-    // Add locale parameter for consistency with the rest of the API
-    params.append('locale', this.locale)
 
     // Append query string if we have parameters
     if (params.toString()) {
@@ -129,11 +126,10 @@ export class AssetManager {
     }
 
     // Build request URL
-    const endpoint = `/api/public/assets/${this.projectId}/${assetId}`
+    const endpoint = `/api/assets/${this.projectId}/${assetId}`
 
     // Build query parameters
     const params = new URLSearchParams()
-    params.append('locale', this.locale)
 
     if (urlOptions.variant) {
       params.append('variant', urlOptions.variant)

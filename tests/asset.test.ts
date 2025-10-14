@@ -78,7 +78,7 @@ describe('AssetManager', () => {
       const url = assetManager.generateAssetUrl(TEST_ASSET_ID)
 
       expect(url).toBe(
-        `${TEST_BASE_URL}/api/public/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?locale=${TEST_LOCALE}`
+        `${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}`
       )
     })
 
@@ -86,7 +86,7 @@ describe('AssetManager', () => {
       const url = assetManager.generateAssetUrl(TEST_ASSET_ID, { variant: 'thumbnail' })
 
       expect(url).toBe(
-        `${TEST_BASE_URL}/api/public/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?variant=thumbnail&locale=${TEST_LOCALE}`
+        `${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?variant=thumbnail`
       )
     })
 
@@ -94,7 +94,7 @@ describe('AssetManager', () => {
       const url = assetManager.generateAssetUrl(TEST_ASSET_ID, { width: 800, height: 600 })
 
       expect(url).toBe(
-        `${TEST_BASE_URL}/api/public/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?width=800&height=600&locale=${TEST_LOCALE}`
+        `${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?width=800&height=600`
       )
     })
 
@@ -106,7 +106,7 @@ describe('AssetManager', () => {
       })
 
       expect(url).toBe(
-        `${TEST_BASE_URL}/api/public/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?variant=medium&width=1024&height=768&locale=${TEST_LOCALE}`
+        `${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?variant=medium&width=1024&height=768`
       )
     })
 
@@ -166,7 +166,7 @@ describe('AssetManager', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledWith(
-        `${TEST_BASE_URL}/api/public/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?locale=${TEST_LOCALE}`,
+        `${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?`,
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
@@ -188,7 +188,7 @@ describe('AssetManager', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledWith(
-        `${TEST_BASE_URL}/api/public/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?locale=${TEST_LOCALE}&variant=large&width=1200&height=800`,
+        `${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?variant=large&width=1200&height=800`,
         expect.any(Object)
       )
     })
@@ -362,7 +362,7 @@ describe('VibeCMSClient Asset Integration', () => {
     const url = cms.asset_url(TEST_ASSET_ID, { width: 400, height: 300 })
 
     expect(url).toBe(
-      `${TEST_BASE_URL}/api/public/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?width=400&height=300&locale=en-US`
+      `${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}?width=400&height=300`
     )
   })
 
@@ -402,7 +402,7 @@ describe('VibeCMSClient Asset Integration', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
-  test('locale changes affect asset URLs', () => {
+  test('locale changes do not affect asset URLs', () => {
     const cms = createVibeCMS({
       projectId: TEST_PROJECT_ID,
       baseUrl: TEST_BASE_URL,
@@ -410,11 +410,16 @@ describe('VibeCMSClient Asset Integration', () => {
     })
 
     const url = cms.asset_url(TEST_ASSET_ID)
-    expect(url).toContain('locale=fr-FR')
+    expect(url).not.toContain('locale=')
+    expect(url).toBe(`${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}`)
 
     cms.setLocale('es-ES')
     const newUrl = cms.asset_url(TEST_ASSET_ID)
-    expect(newUrl).toContain('locale=es-ES')
+    expect(newUrl).not.toContain('locale=')
+    expect(newUrl).toBe(`${TEST_BASE_URL}/api/assets/${TEST_PROJECT_ID}/${TEST_ASSET_ID}`)
+
+    // Asset URLs should be identical regardless of locale
+    expect(url).toBe(newUrl)
   })
 })
 

@@ -1,65 +1,23 @@
 /**
  * TypeScript types for VMS Public API responses.
- * These types exactly match the backend models in backend/app/models/public_content.py
+ * These types match the actual API structure from /openapi.json
  */
 
 /**
- * Public content item model without sensitive internal metadata.
- * Always published content only (no drafts or archived content).
+ * Public content item model - returns only essential data for consumers.
+ *
+ * The API returns a simplified structure focused on the actual content:
+ * - No status field (all public API items are implicitly published)
+ * - No timestamps (not needed for content consumption)
+ * - No metadata wrapper (metadata is in the data object if needed)
  */
 export interface PublicContentItem {
   /** Content item ID */
   id: string
-  /** Content status - always "published" for public API */
-  status: 'published'
   /** Content data based on collection fields */
   data: Record<string, any>
-  /** Public metadata (SEO, publishing info, etc.) */
-  metadata: Record<string, any>
-  /** Content creation timestamp in ISO format */
-  created_at: string
-  /** Content last update timestamp in ISO format */
-  updated_at: string
-}
-
-/**
- * Public collection information for API responses.
- */
-export interface PublicCollection {
-  /** URL-friendly collection identifier */
-  slug: string
-  /** Collection display name */
-  name: string
-  /** Collection description (optional) */
-  description?: string
-  /** Whether this collection has only one item */
-  is_singleton: boolean
-}
-
-/**
- * Response model for single published content item with context.
- */
-export interface PublicContentResponse {
-  /** The content item */
-  content: PublicContentItem
-  /** Collection information */
-  collection: PublicCollection
-  /** Project identifier */
-  project_id: string
-}
-
-/**
- * Response model for listing published content items.
- */
-export interface PublicContentListResponse {
-  /** List of content items */
-  items: PublicContentItem[]
-  /** Collection information */
-  collection: PublicCollection
-  /** Project identifier */
-  project_id: string
-  /** Total number of published items */
-  total: number
+  /** Actual locale used (accounts for fallback chain) */
+  locale: string
 }
 
 /**

@@ -4,9 +4,7 @@
  */
 
 import type {
-  PublicContentItem,
-  PublicContentListResponse,
-  PublicContentResponse
+  PublicContentItem
 } from '../types/api.js'
 import type { QueryOptions } from '../types/config.js'
 import type { BrowserCache } from './cache.js'
@@ -55,24 +53,23 @@ export class CollectionQuery<T = PublicContentItem> {
     console.log('🔍 SDK DEBUG: Cache miss, making API request to fetcher.get()')
 
     try {
-      // Fetch all items from the collection
-      const response = await this.fetcher.get<PublicContentListResponse>(
+      // Fetch items from the collection - API returns plain array
+      const items = await this.fetcher.get<PublicContentItem[]>(
         `/api/public/${this.projectId}/${this.collectionSlug}?locale=${encodeURIComponent(this.locale)}`
       )
 
       console.log('🔍 SDK DEBUG: API response received:', {
-        hasItems: !!response.items,
-        itemCount: response.items ? response.items.length : 0,
-        collection: response.collection ? response.collection.slug : 'no-collection'
+        isArray: Array.isArray(items),
+        itemCount: items.length
       })
 
-      const firstItem = response.items[0] || null
-      
+      const firstItem = items[0] || null
+
       console.log('🔍 SDK DEBUG: First item result:', {
         hasFirstItem: !!firstItem,
         firstItemKeys: firstItem && typeof firstItem === 'object' ? Object.keys(firstItem) : 'not-object'
       })
-      
+
       // Cache the result
       if (firstItem) {
         await this.cache.set(cacheKey, firstItem as T)
@@ -113,14 +110,14 @@ export class CollectionQuery<T = PublicContentItem> {
     }
 
     try {
-      // Fetch all items from the collection
-      const response = await this.fetcher.get<PublicContentListResponse>(
+      // Fetch items from the collection - API returns plain array
+      const allItems = await this.fetcher.get<PublicContentItem[]>(
         `/api/public/${this.projectId}/${this.collectionSlug}?locale=${encodeURIComponent(this.locale)}`
       )
 
-      let items = response.items as T[]
-      
-      // Apply limit if specified
+      let items = allItems as T[]
+
+      // Apply limit client-side if specified
       if (limit && limit > 0) {
         items = items.slice(0, limit)
       }
@@ -163,17 +160,15 @@ export class CollectionQuery<T = PublicContentItem> {
     }
 
     try {
-      // Fetch specific item
-      const response = await this.fetcher.get<PublicContentResponse>(
+      // Fetch specific item - API returns single PublicContentItem
+      const item = await this.fetcher.get<PublicContentItem>(
         `/api/public/${this.projectId}/${this.collectionSlug}/${itemId}?locale=${encodeURIComponent(this.locale)}`
       )
 
-      const item = response.content as T
-      
       // Cache the result
-      await this.cache.set(cacheKey, item)
+      await this.cache.set(cacheKey, item as T)
 
-      return new CollectionResult(item, this.assetManager)
+      return new CollectionResult(item as T, this.assetManager)
     } catch (error) {
       // Handle 404 errors gracefully for item() method
       if (error instanceof Error && 'status' in error && error.status === 404) {
@@ -181,7 +176,7 @@ export class CollectionQuery<T = PublicContentItem> {
         await this.cache.set(cacheKey, null as T, 60000) // 1 minute for null results
         return new CollectionResult(null as T, this.assetManager)
       }
-      
+
       // Re-throw other errors
       throw error
     }
@@ -203,21 +198,20 @@ export class CollectionQuery<T = PublicContentItem> {
   }
 
   /**
-   * Get collection metadata without caching.
-   * This fetches the collection info by making a request and extracting metadata.
+   * Get basic collection information.
+   * Note: The public API doesn't return collection metadata, so this only returns
+   * the collection slug and item count.
    */
   async getCollectionInfo() {
     try {
-      const response = await this.fetcher.get<PublicContentListResponse>(
+      const items = await this.fetcher.get<PublicContentItem[]>(
         `/api/public/${this.projectId}/${this.collectionSlug}?locale=${encodeURIComponent(this.locale)}`
       )
 
       return {
-        slug: response.collection.slug,
-        name: response.collection.name,
-        description: response.collection.description,
-        is_singleton: response.collection.is_singleton,
-        total: response.total,
+        slug: this.collectionSlug,
+        itemCount: items.length,
+        locale: this.locale,
       }
     } catch (error) {
       throw error

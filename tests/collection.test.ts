@@ -6,7 +6,8 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CollectionQuery } from '../src/core/collection.js'
 import { Fetcher } from '../src/core/fetcher.js'
 import { BrowserCache } from '../src/core/cache.js'
-import { 
+import { AssetManager } from '../src/core/asset.js'
+import {
   mockFetch,
   TEST_PROJECT_ID,
   TEST_COLLECTION_SLUG,
@@ -22,16 +23,18 @@ import {
 describe('CollectionQuery', () => {
   let fetcher: Fetcher
   let cache: BrowserCache
+  let assetManager: AssetManager
   let collection: CollectionQuery
 
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
     sessionStorage.clear()
-    
+
     fetcher = new Fetcher('https://api.vibe-cms.com')
     cache = new BrowserCache({ enabled: true, ttl: 300000, storage: 'localStorage' })
-    collection = new CollectionQuery(fetcher, cache, TEST_PROJECT_ID, TEST_COLLECTION_SLUG, 'en-US')
+    assetManager = new AssetManager(fetcher, cache, TEST_PROJECT_ID, 'en-US')
+    collection = new CollectionQuery(fetcher, cache, TEST_PROJECT_ID, TEST_COLLECTION_SLUG, 'en-US', assetManager)
   })
 
   afterEach(() => {
@@ -57,11 +60,7 @@ describe('CollectionQuery', () => {
 
     test('returns null for empty collection', async () => {
       mockFetch.mockResolvedValueOnce(
-        createMockResponse({
-          ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-          items: [],
-          total: 0,
-        })
+        createMockResponse([]) // Empty array
       )
 
       const result = await collection.first()
@@ -94,15 +93,11 @@ describe('CollectionQuery', () => {
 
   describe('many() method', () => {
     test('returns multiple items without limit', async () => {
-      const multipleItems = {
-        ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-        items: [
-          MOCK_PUBLIC_CONTENT_ITEM,
-          { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item2' },
-          { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item3' },
-        ],
-        total: 3,
-      }
+      const multipleItems = [
+        MOCK_PUBLIC_CONTENT_ITEM,
+        { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item2' },
+        { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item3' },
+      ]
 
       mockFetch.mockResolvedValueOnce(createMockResponse(multipleItems))
 
@@ -114,15 +109,11 @@ describe('CollectionQuery', () => {
     })
 
     test('returns limited items when limit specified', async () => {
-      const multipleItems = {
-        ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-        items: [
-          MOCK_PUBLIC_CONTENT_ITEM,
-          { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item2' },
-          { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item3' },
-        ],
-        total: 3,
-      }
+      const multipleItems = [
+        MOCK_PUBLIC_CONTENT_ITEM,
+        { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item2' },
+        { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item3' },
+      ]
 
       mockFetch.mockResolvedValueOnce(createMockResponse(multipleItems))
 
@@ -134,11 +125,7 @@ describe('CollectionQuery', () => {
 
     test('returns empty array for empty collection', async () => {
       mockFetch.mockResolvedValueOnce(
-        createMockResponse({
-          ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-          items: [],
-          total: 0,
-        })
+        createMockResponse([]) // Empty array
       )
 
       const result = await collection.many()
@@ -149,15 +136,11 @@ describe('CollectionQuery', () => {
     })
 
     test('caches results with different limits separately', async () => {
-      const multipleItems = {
-        ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-        items: [
-          MOCK_PUBLIC_CONTENT_ITEM,
-          { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item2' },
-          { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item3' },
-        ],
-        total: 3,
-      }
+      const multipleItems = [
+        MOCK_PUBLIC_CONTENT_ITEM,
+        { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item2' },
+        { ...MOCK_PUBLIC_CONTENT_ITEM, id: 'item3' },
+      ]
 
       mockFetch.mockResolvedValue(createMockResponse(multipleItems))
 
@@ -169,7 +152,7 @@ describe('CollectionQuery', () => {
       expect(result1.count).toBe(1)
       expect(result2.count).toBe(2)
       expect(result3.count).toBe(3)
-      
+
       // Each should have made its own API call due to different cache keys
       expect(mockFetch).toHaveBeenCalledTimes(3)
     })
@@ -267,19 +250,18 @@ describe('CollectionQuery', () => {
   })
 
   describe('Collection Info', () => {
-    test('getCollectionInfo returns collection metadata', async () => {
+    test('getCollectionInfo returns basic collection info', async () => {
       mockFetch.mockResolvedValueOnce(
         createMockResponse(MOCK_PUBLIC_CONTENT_LIST_RESPONSE)
       )
 
       const info = await collection.getCollectionInfo()
 
+      // Public API doesn't return full collection metadata, only basic info
       expect(info).toEqual({
         slug: TEST_COLLECTION_SLUG,
-        name: 'Blog Posts',
-        description: 'Public blog posts collection',
-        is_singleton: false,
-        total: 1,
+        itemCount: 1,
+        locale: 'en-US',
       })
     })
   })

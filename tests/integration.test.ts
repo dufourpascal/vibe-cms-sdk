@@ -65,10 +65,7 @@ describe('VMS SDK Integration', () => {
       // Mock responses for different collections
       mockFetch
         .mockResolvedValueOnce(createMockResponse(MOCK_PUBLIC_CONTENT_LIST_RESPONSE))
-        .mockResolvedValueOnce(createMockResponse({
-          ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-          collection: { ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE.collection, slug: 'pages' }
-        }))
+        .mockResolvedValueOnce(createMockResponse(MOCK_PUBLIC_CONTENT_LIST_RESPONSE))
 
       // Access different collections
       const blogPosts = await cms.collection('blog-posts').all()
@@ -175,15 +172,11 @@ describe('VMS SDK Integration', () => {
     test('blog listing with pagination simulation', async () => {
       const cms = createVibeCMS({ projectId: TEST_PROJECT_ID })
 
-      const multipleItems = {
-        ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-        items: Array.from({ length: 25 }, (_, i) => ({
-          ...MOCK_PUBLIC_CONTENT_ITEM,
-          id: `item${i + 1}`,
-          data: { ...MOCK_PUBLIC_CONTENT_ITEM.data, title: `Post ${i + 1}` }
-        })),
-        total: 25
-      }
+      const multipleItems = Array.from({ length: 25 }, (_, i) => ({
+        ...MOCK_PUBLIC_CONTENT_ITEM,
+        id: `item${i + 1}`,
+        data: { ...MOCK_PUBLIC_CONTENT_ITEM.data, title: `Post ${i + 1}` }
+      }))
 
       mockFetch.mockResolvedValue(createMockResponse(multipleItems))
 
@@ -344,19 +337,15 @@ describe('VMS SDK Integration', () => {
       const cms = createVibeCMS({ projectId: TEST_PROJECT_ID })
 
       // Simulate large response
-      const largeResponse = {
-        ...MOCK_PUBLIC_CONTENT_LIST_RESPONSE,
-        items: Array.from({ length: 1000 }, (_, i) => ({
-          ...MOCK_PUBLIC_CONTENT_ITEM,
-          id: `item${i}`,
-          data: { 
-            ...MOCK_PUBLIC_CONTENT_ITEM.data, 
-            title: `Large Post ${i}`,
-            content: 'Lorem ipsum '.repeat(100) // Simulate large content
-          }
-        })),
-        total: 1000
-      }
+      const largeResponse = Array.from({ length: 1000 }, (_, i) => ({
+        ...MOCK_PUBLIC_CONTENT_ITEM,
+        id: `item${i}`,
+        data: {
+          ...MOCK_PUBLIC_CONTENT_ITEM.data,
+          title: `Large Post ${i}`,
+          content: 'Lorem ipsum '.repeat(100) // Simulate large content
+        }
+      }))
 
       mockFetch.mockResolvedValueOnce(createMockResponse(largeResponse))
 
