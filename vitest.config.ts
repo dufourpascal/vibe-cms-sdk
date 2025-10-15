@@ -5,6 +5,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
+    exclude: [
+      'node_modules/**',
+      'dist/**',
+      'tests/integration/**', // Exclude integration tests - run separately via test:integration
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

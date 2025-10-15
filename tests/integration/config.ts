@@ -1,155 +1,60 @@
 /**
- * Integration test configuration for different environments.
+ * Integration test configuration.
  *
- * Supports: local, dev, staging, prod
- * Configure via TEST_ENV environment variable (defaults to 'local')
+ * Tests run against a stable staging environment with hardcoded test data.
+ * This allows tests to run without any configuration and validate against known expected values.
+ *
+ * The staging environment contains stable test data that should not change:
+ * - test_collection_1: Regular collection with 2 items in en-US and es-ES
+ * - test_singleton_2: Singleton collection with 1 item in en-US and es-ES
  */
 
-export type TestEnvironment = 'local' | 'dev' | 'staging' | 'prod'
+import { STAGING_CONFIG, COLLECTIONS, ASSET_IDS } from './testData.js'
 
-export interface EnvironmentConfig {
+export interface TestConfig {
   name: string
   baseUrl: string
   projectId: string
   assets: {
-    // Test asset IDs for different purposes
-    image: string      // A valid image asset
-    document?: string  // A document asset (PDF, etc.)
-    video?: string     // A video asset
+    image1: string // First test asset
+    image2: string // Second test asset
   }
   collections: {
-    faq: string
-    blogPost: string
-    landingPage: string
+    testCollection: string // test_collection_1
+    testSingleton: string // test_singleton_2
   }
   timeout: number // Request timeout in ms
 }
 
 /**
- * Environment configurations.
- *
- * Priority order for projectId and asset IDs:
- * 1. CLI arguments: PROJECT_ID and ASSET_ID (set via run.js wrapper)
- * 2. Environment-specific vars: VIBE_{ENV}_PROJECT_ID and VIBE_{ENV}_ASSET_IMAGE
- * 3. Empty string (triggers "not configured" skip)
- *
- * Other settings can be overridden via environment variables (see .env.test.example)
+ * Staging configuration with hardcoded stable test data.
  */
-const environments: Record<TestEnvironment, EnvironmentConfig> = {
-  local: {
-    name: 'Local Development',
-    baseUrl: process.env.VIBE_LOCAL_BASE_URL || 'http://localhost:8000',
-    projectId: process.env.PROJECT_ID || process.env.VIBE_LOCAL_PROJECT_ID || '',
-    assets: {
-      image: process.env.ASSET_ID || process.env.VIBE_LOCAL_ASSET_IMAGE || '',
-    },
-    collections: {
-      faq: process.env.VIBE_LOCAL_COLLECTION_FAQ || 'faq',
-      blogPost: process.env.VIBE_LOCAL_COLLECTION_BLOG || 'blog-post',
-      landingPage: process.env.VIBE_LOCAL_COLLECTION_LANDING || 'landing-page',
-    },
-    timeout: 10000,
+const stagingConfig: TestConfig = {
+  name: 'Staging',
+  baseUrl: STAGING_CONFIG.baseUrl,
+  projectId: STAGING_CONFIG.projectId,
+  assets: {
+    image1: ASSET_IDS.IMAGE_1,
+    image2: ASSET_IDS.IMAGE_2,
   },
-
-  dev: {
-    name: 'Deployed Development',
-    baseUrl: process.env.VIBE_DEV_BASE_URL || 'https://dev-api.vibe-cms.com',
-    projectId: process.env.PROJECT_ID || process.env.VIBE_DEV_PROJECT_ID || '',
-    assets: {
-      image: process.env.ASSET_ID || process.env.VIBE_DEV_ASSET_IMAGE || '',
-    },
-    collections: {
-      faq: process.env.VIBE_DEV_COLLECTION_FAQ || 'faq',
-      blogPost: process.env.VIBE_DEV_COLLECTION_BLOG || 'blog-post',
-      landingPage: process.env.VIBE_DEV_COLLECTION_LANDING || 'landing-page',
-    },
-    timeout: 15000,
+  collections: {
+    testCollection: COLLECTIONS.TEST_COLLECTION,
+    testSingleton: COLLECTIONS.TEST_SINGLETON,
   },
-
-  staging: {
-    name: 'Staging',
-    baseUrl: process.env.VIBE_STAGING_BASE_URL || 'https://staging-api.vibe-cms.com',
-    projectId: process.env.PROJECT_ID || process.env.VIBE_STAGING_PROJECT_ID || '',
-    assets: {
-      image: process.env.ASSET_ID || process.env.VIBE_STAGING_ASSET_IMAGE || '',
-    },
-    collections: {
-      faq: process.env.VIBE_STAGING_COLLECTION_FAQ || 'faq',
-      blogPost: process.env.VIBE_STAGING_COLLECTION_BLOG || 'blog-post',
-      landingPage: process.env.VIBE_STAGING_COLLECTION_LANDING || 'landing-page',
-    },
-    timeout: 15000,
-  },
-
-  prod: {
-    name: 'Production',
-    baseUrl: process.env.VIBE_PROD_BASE_URL || 'https://api.vibe-cms.com',
-    projectId: process.env.PROJECT_ID || process.env.VIBE_PROD_PROJECT_ID || '',
-    assets: {
-      image: process.env.ASSET_ID || process.env.VIBE_PROD_ASSET_IMAGE || '',
-    },
-    collections: {
-      faq: process.env.VIBE_PROD_COLLECTION_FAQ || 'faq',
-      blogPost: process.env.VIBE_PROD_COLLECTION_BLOG || 'blog-post',
-      landingPage: process.env.VIBE_PROD_COLLECTION_LANDING || 'landing-page',
-    },
-    timeout: 20000,
-  },
+  timeout: 15000,
 }
 
 /**
- * Get the current test environment from TEST_ENV variable.
- * Defaults to 'local' if not set or invalid.
+ * Get the test configuration.
+ * Always returns staging configuration.
  */
-export function getTestEnvironment(): TestEnvironment {
-  const envName = process.env.TEST_ENV?.toLowerCase()
-
-  if (envName && envName in environments) {
-    return envName as TestEnvironment
-  }
-
-  return 'local'
+export function getConfig(): TestConfig {
+  return stagingConfig
 }
 
 /**
- * Get configuration for the current test environment.
- */
-export function getConfig(): EnvironmentConfig {
-  const env = getTestEnvironment()
-  return environments[env]
-}
-
-/**
- * Check if the current environment is configured and ready for testing.
- * Returns false if required fields (projectId, asset IDs) are missing.
- */
-export function isEnvironmentConfigured(): boolean {
-  const config = getConfig()
-
-  // Check required fields
-  if (!config.projectId || config.projectId === '') {
-    return false
-  }
-
-  if (!config.assets.image || config.assets.image === '') {
-    return false
-  }
-
-  return true
-}
-
-/**
- * Get a descriptive message about the current environment configuration.
+ * Get a descriptive message about the test environment.
  */
 export function getEnvironmentInfo(): string {
-  const env = getTestEnvironment()
-  const config = getConfig()
-
-  return `Testing against: ${config.name} (${config.baseUrl})\nProject ID: ${config.projectId}`
+  return `Testing against: ${stagingConfig.name} (${stagingConfig.baseUrl})\nProject ID: ${stagingConfig.projectId}`
 }
-
-/**
- * Helper to skip tests if environment is not configured.
- * Use with describe.skipIf() or test.skipIf()
- */
-export const skipIfNotConfigured = !isEnvironmentConfigured()
