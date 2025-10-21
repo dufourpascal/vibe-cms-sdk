@@ -234,7 +234,7 @@ Returns an array of items with optional limit.
 
 ```typescript
 const recentPosts = await cms.collection('blog_posts').many({ limit: 10 })
-const defaultMany = await cms.collection('blog_posts').many() // defaults to 50
+const defaultMany = await cms.collection('blog_posts').many() // returns all items (no limit)
 ```
 
 #### `.all()`
@@ -380,12 +380,18 @@ console.log(posts.isEmpty)      // Boolean
 console.log(posts.isArray)      // true for .many()/.all()
 console.log(posts.isSingle)     // true for .first()/.item()
 
-// Array-like operations
-posts.map(post => post.data.title)
-posts.filter(post => post.data.featured)
-posts.find(post => post.data.slug === 'target')
+// Array-like operations (using .field() - recommended)
+posts.map(post => post.field('title'))
+posts.filter(post => post.field('featured'))
+posts.find(post => post.field('slug') === 'target')
 
-// Iteration
+// Iteration with .field()
+for (const post of posts) {
+  console.log(post.field('title'))
+}
+
+// Or access raw data directly (backward compatibility)
+posts.map(post => post.data.title)
 for (const post of posts) {
   console.log(post.data.title)
 }
@@ -430,23 +436,6 @@ const spanishPosts = await cms.collection('blog_posts').many()
 
 // Check current locale
 console.log(cms.getLocale())  // 'es-ES'
-```
-
-### Locale-Aware Asset URLs
-
-Asset URLs automatically include the current locale parameter:
-
-```typescript
-cms.setLocale('fr-FR')
-
-const post = await cms.collection('blog_posts').first()
-const imageUrl = post.asset_url('featured_image')
-// URL will include: ...&locale=fr-FR
-
-// Bulk asset URLs maintain locale consistency
-const posts = await cms.collection('blog_posts').many()
-const allImageUrls = posts.asset_url('featured_image')
-// All URLs include the French locale parameter
 ```
 
 ### Automatic Cache Separation
