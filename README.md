@@ -25,6 +25,8 @@ npm install vibe-cms-sdk
 
 ## Quick Start
 
+### Basic Usage
+
 ```typescript
 import { createVibeCMS } from 'vibe-cms-sdk'
 
@@ -40,7 +42,7 @@ const cms = createVibeCMS({
   }
 })
 
-// Use the chainable API with enhanced field extraction
+// Query content using the chainable API
 const firstPost = await cms.collection('blog_posts').first()
 const title = firstPost.field('title')           // Extract field directly
 const imageUrl = firstPost.asset_url('featured_image')  // Generate asset URL
@@ -48,6 +50,147 @@ const imageUrl = firstPost.asset_url('featured_image')  // Generate asset URL
 const allPosts = await cms.collection('blog_posts').many({ limit: 10 })
 const titles = allPosts.field('title')           // ['Title 1', 'Title 2', ...]
 const imageUrls = allPosts.asset_url('featured_image')  // Bulk asset URLs
+```
+
+### Singleton Pattern (Recommended)
+
+For most applications, create a single shared SDK instance:
+
+```typescript
+// lib/cms.ts
+import { createVibeCMS } from 'vibe-cms-sdk'
+
+export const cms = createVibeCMS({
+  projectId: process.env.VIBE_CMS_PROJECT_ID || 'your-project-id',
+  cache: { enabled: true, ttl: 300000 }
+})
+
+// components/BlogList.tsx
+import { cms } from '@/lib/cms'
+
+export async function getBlogPosts() {
+  const posts = await cms.collection('blog_posts').many({ limit: 10 })
+  return posts.map(post => ({
+    title: post.field('title'),
+    excerpt: post.field('excerpt'),
+    imageUrl: post.asset_url('featured_image')
+  }))
+}
+```
+
+## Common Patterns
+
+### Fetching Content
+
+```typescript
+// Get a single item (first in collection)
+const featuredPost = await cms.collection('blog_posts').first()
+
+// Get all items in a collection
+const allPosts = await cms.collection('blog_posts').all()
+
+// Get multiple items with client-side limit
+const recentPosts = await cms.collection('blog_posts').many({ limit: 10 })
+
+// Get a specific item by ID
+const post = await cms.collection('blog_posts').item('item-123')
+```
+
+### Working with Pagination
+
+The SDK uses **client-side pagination** - the API returns all items, then applies the limit locally:
+
+```typescript
+// Fetch first 10 items (all items are fetched, then limited client-side)
+const page1 = await cms.collection('blog_posts').many({ limit: 10 })
+
+// For manual pagination, fetch all and slice:
+const allPosts = await cms.collection('blog_posts').all()
+const postsArray = allPosts.toArray()
+
+const page1 = postsArray.slice(0, 10)   // Items 0-9
+const page2 = postsArray.slice(10, 20)  // Items 10-19
+const page3 = postsArray.slice(20, 30)  // Items 20-29
+```
+
+**Important:** There is no server-side pagination (offset/skip). For collections with many items, consider:
+- Using `.first()` for single items
+- Using `.many({ limit })` for reasonable limits
+- Implementing client-side pagination with `.all()` and array slicing
+- Leveraging caching to reduce API calls
+
+### Error Handling
+
+```typescript
+import { VibeCMSError } from 'vibe-cms-sdk'
+
+try {
+  const posts = await cms.collection('blog_posts').all()
+  // Process posts...
+} catch (error) {
+  if (error instanceof VibeCMSError) {
+    console.error('CMS Error:', error.message)
+    console.error('Status:', error.status)
+    console.error('Details:', error.details)
+  } else {
+    console.error('Network Error:', error.message)
+  }
+}
+```
+
+### Loading States in Components
+
+```typescript
+// React example
+function BlogPosts() {
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    cms.collection('blog_posts').many({ limit: 10 })
+      .then(result => {
+        setPosts(result.toArray())
+        setLoading(false)
+      })
+      .catch(err => {
+        setError(err.message)
+        setLoading(false)
+      })
+  }, [])
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error}</div>
+
+  return (
+    <div>
+      {posts.map(post => (
+        <article key={post.id}>
+          <h2>{post.field('title')}</h2>
+        </article>
+      ))}
+    </div>
+  )
+}
+```
+
+### Working with Locales
+
+```typescript
+// Set locale for all subsequent requests
+cms.setLocale('fr-FR')
+const frenchPosts = await cms.collection('blog_posts').many()
+
+// Switch locales dynamically
+cms.setLocale('es-ES')
+const spanishPosts = await cms.collection('blog_posts').many()
+
+// Each locale has separate cache
+cms.setLocale('en-US')
+const englishPosts = await cms.collection('blog_posts').many() // Fresh API call
+
+// Clear cache for specific locale
+await cms.clearLocaleCache('fr-FR')
 ```
 
 ## API Reference
@@ -175,22 +318,54 @@ const allTags = posts.field('tags')         // [['tech'], ['design', 'ui'], ...]
 Generate asset URLs and download assets directly from field values:
 
 ```typescript
-// Single asset URLs
+// Single asset URLs (returns the original asset)
 const post = await cms.collection('blog_posts').first()
 const imageUrl = post.asset_url('featured_image')
-const thumbnailUrl = post.asset_url('featured_image', { width: 300, height: 200 })
 
-// Multiple asset URLs
+// Image transformation with width/height
+// Width and height maintain aspect ratio unless both are specified
+const thumbnailUrl = post.asset_url('featured_image', { width: 300 })
+const exactSizeUrl = post.asset_url('featured_image', { width: 300, height: 200 })
+
+// Using pre-configured variants (if set up in Vibe CMS)
+// Variants are defined in your Vibe CMS project settings
+const thumbUrl = post.asset_url('featured_image', { variant: 'thumbnail' })
+const largeUrl = post.asset_url('featured_image', { variant: 'large' })
+
+// Combining transformations
+const customUrl = post.asset_url('featured_image', {
+  variant: 'large',
+  width: 800,
+  height: 600
+})
+
+// Multiple asset URLs (bulk generation)
 const posts = await cms.collection('blog_posts').many()
-const allImageUrls = posts.asset_url('featured_image')  // Bulk generation!
+const allImageUrls = posts.asset_url('featured_image')  // ['url1', 'url2', ...]
 
 // Asset arrays (galleries)
-const galleryUrls = post.asset_url('gallery')           // ['url1', 'url2', ...]
+const galleryUrls = post.asset_url('gallery')  // ['url1', 'url2', ...] if gallery is an array field
 
-// Download assets
+// Download assets (fetches binary data)
 const imageData = await post.download_asset('featured_image')
-console.log(imageData.contentType, imageData.contentLength)
+console.log(imageData.contentType)      // e.g., 'image/jpeg'
+console.log(imageData.contentLength)    // size in bytes
+console.log(imageData.fileName)         // original file name
+
+// Download with transformations
+const thumbnailData = await post.download_asset('featured_image', {
+  width: 300,
+  height: 200,
+  useCache: true  // cache the downloaded binary (default: true)
+})
 ```
+
+**Asset transformation options:**
+- `width`: Width in pixels (maintains aspect ratio if height not specified)
+- `height`: Height in pixels (maintains aspect ratio if width not specified)
+- `variant`: Use pre-configured variant from Vibe CMS (e.g., 'thumbnail', 'medium', 'large')
+
+**Note:** When both width and height are specified, the image may be cropped to fit exact dimensions.
 
 ### Collection Result Methods
 
@@ -348,18 +523,60 @@ cms.setLocale('')         // Empty string
 
 ## TypeScript Support
 
-The SDK is built with TypeScript and provides full type safety:
+The SDK is built with TypeScript and provides full type safety with generic type parameters:
 
 ```typescript
-// Generic type support
+// Define your content type
 interface BlogPost {
   title: string
   content: string
+  excerpt: string
   published_at: string
+  featured_image?: string
+  tags?: string[]
 }
 
+// Type flows through the entire query chain
 const post = await cms.collection<BlogPost>('blog_posts').first()
-// post is typed as BlogPost | null
+// post is CollectionResult<BlogPost>
+
+// Field extraction is type-aware
+const title = post.field('title')  // Returns string | null
+const tags = post.field('tags')    // Returns string[] | null
+
+// Asset URLs maintain type safety
+const imageUrl = post.asset_url('featured_image')  // Returns string | null
+
+// Array operations maintain types
+const posts = await cms.collection<BlogPost>('blog_posts').many({ limit: 10 })
+posts.map(p => p.field('title'))  // Returns (string | null)[]
+
+// Create type-safe helper functions
+async function getPublishedPosts(limit = 10) {
+  const result = await cms.collection<BlogPost>('blog_posts').many({ limit })
+  return result.map(post => ({
+    title: post.field('title') as string,
+    excerpt: post.field('excerpt') as string,
+    imageUrl: post.asset_url('featured_image') as string | undefined,
+    tags: post.field('tags') as string[] | undefined
+  }))
+}
+
+// Use with complex nested types
+interface Product {
+  name: string
+  price: number
+  description: string
+  images: string[]  // Array of asset IDs
+  variants: {
+    size: string
+    color: string
+    sku: string
+  }[]
+}
+
+const products = await cms.collection<Product>('products').all()
+const allImageUrls = products.asset_url('images')  // Returns string[]
 ```
 
 ## Framework Examples
@@ -369,25 +586,45 @@ const post = await cms.collection<BlogPost>('blog_posts').first()
 ```vue
 <template>
   <div>
+    <div v-if="loading">Loading...</div>
+    <div v-else-if="error">Error: {{ error }}</div>
     <article v-for="post in posts" :key="post.id">
-      <h2>{{ post.data.title }}</h2>
-      <p>{{ post.data.excerpt }}</p>
+      <h2>{{ post.title }}</h2>
+      <p>{{ post.excerpt }}</p>
+      <img v-if="post.imageUrl" :src="post.imageUrl" :alt="post.title" />
     </article>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { createVibeCMS } from 'vibe-cms-sdk'
+import { cms } from '@/lib/cms' // Singleton instance
 
-const posts = ref([])
+interface BlogPost {
+  title: string
+  excerpt: string
+  content: string
+  featured_image?: string
+}
 
-const cms = createVibeCMS({
-  projectId: 'your-project-id'
-})
+const posts = ref<Array<{ id: string; title: string; excerpt: string; imageUrl?: string }>>([])
+const loading = ref(true)
+const error = ref<string | null>(null)
 
 onMounted(async () => {
-  posts.value = await cms.collection('blog_posts').many({ limit: 10 })
+  try {
+    const result = await cms.collection<BlogPost>('blog_posts').many({ limit: 10 })
+    posts.value = result.map(post => ({
+      id: post.id,
+      title: post.field('title'),
+      excerpt: post.field('excerpt'),
+      imageUrl: post.asset_url('featured_image') as string | undefined
+    }))
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Unknown error'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 ```
@@ -396,26 +633,53 @@ onMounted(async () => {
 
 ```tsx
 import { useState, useEffect } from 'react'
-import { createVibeCMS } from 'vibe-cms-sdk'
+import { cms } from '@/lib/cms' // Singleton instance
 
-const cms = createVibeCMS({
-  projectId: 'your-project-id'
-})
+interface BlogPost {
+  title: string
+  excerpt: string
+  content: string
+  featured_image?: string
+}
 
 function BlogPosts() {
-  const [posts, setPosts] = useState([])
-  
+  const [posts, setPosts] = useState<Array<{
+    id: string
+    title: string
+    excerpt: string
+    imageUrl?: string
+  }>>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
-    cms.collection('blog_posts').many({ limit: 10 })
-      .then(setPosts)
+    cms.collection<BlogPost>('blog_posts').many({ limit: 10 })
+      .then(result => {
+        const mapped = result.map(post => ({
+          id: post.id,
+          title: post.field('title'),
+          excerpt: post.field('excerpt'),
+          imageUrl: post.asset_url('featured_image') as string | undefined
+        }))
+        setPosts(mapped)
+        setLoading(false)
+      })
+      .catch(err => {
+        setError(err.message)
+        setLoading(false)
+      })
   }, [])
-  
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error}</div>
+
   return (
     <div>
       {posts.map(post => (
         <article key={post.id}>
-          <h2>{post.data.title}</h2>
-          <p>{post.data.excerpt}</p>
+          <h2>{post.title}</h2>
+          <p>{post.excerpt}</p>
+          {post.imageUrl && <img src={post.imageUrl} alt={post.title} />}
         </article>
       ))}
     </div>
@@ -427,26 +691,53 @@ function BlogPosts() {
 
 ```typescript
 import { Component, OnInit } from '@angular/core'
-import { createVibeCMS } from 'vibe-cms-sdk'
+import { cms } from '@/lib/cms' // Singleton instance
+
+interface BlogPost {
+  title: string
+  excerpt: string
+  content: string
+  featured_image?: string
+}
+
+interface PostViewModel {
+  id: string
+  title: string
+  excerpt: string
+  imageUrl?: string
+}
 
 @Component({
   selector: 'app-blog',
   template: `
+    <div *ngIf="loading">Loading...</div>
+    <div *ngIf="error">Error: {{ error }}</div>
     <article *ngFor="let post of posts">
-      <h2>{{ post.data.title }}</h2>
-      <p>{{ post.data.excerpt }}</p>
+      <h2>{{ post.title }}</h2>
+      <p>{{ post.excerpt }}</p>
+      <img *ngIf="post.imageUrl" [src]="post.imageUrl" [alt]="post.title" />
     </article>
   `
 })
 export class BlogComponent implements OnInit {
-  posts: any[] = []
-  
-  private cms = createVibeCMS({
-    projectId: 'your-project-id'
-  })
-  
+  posts: PostViewModel[] = []
+  loading = true
+  error: string | null = null
+
   async ngOnInit() {
-    this.posts = await this.cms.collection('blog_posts').many({ limit: 10 })
+    try {
+      const result = await cms.collection<BlogPost>('blog_posts').many({ limit: 10 })
+      this.posts = result.map(post => ({
+        id: post.id,
+        title: post.field('title'),
+        excerpt: post.field('excerpt'),
+        imageUrl: post.asset_url('featured_image') as string | undefined
+      }))
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : 'Unknown error'
+    } finally {
+      this.loading = false
+    }
   }
 }
 ```
